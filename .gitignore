@@ -1,0 +1,11 @@
+.idea
+.env
+.cache
+.coverage
+.pytest_cache
+*.tmp
+
+logs/*.log
+logs/pipeline.log*
+__pycache__
+
