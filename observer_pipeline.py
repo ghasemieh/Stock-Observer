@@ -1,6 +1,7 @@
 import sys
 import argparse
 import configuration
+from stock_observer.notifier import Notifier
 from utils import read_csv
 from typing import List
 from pathlib import Path
@@ -55,6 +56,16 @@ class Stock_Observer_Pipeline:
                     None
                     # analyzer = Analyzer(self.config)
                     # analyzer.analysis(data_df=data_df)
+                except BaseException as e:
+                    pipeline_report_step.mark_failure(str(e))
+                    raise e
+
+            if args.notify:
+                logger.info("notifier started.")
+                pipeline_report_step = self.pipeline_report.create_step("Notifier")
+                try:
+                    notifier = Notifier(self.config)
+                    notifier.notifier()
                 except BaseException as e:
                     pipeline_report_step.mark_failure(str(e))
                     raise e
