@@ -7,7 +7,7 @@ from log_setup import get_logger
 from argparse import ArgumentParser
 from configuration import ConfigParser
 from pipeline_report import PipelineReport
-from downloader import Downloader
+from stock_observer.downloader import Downloader
 
 
 logger = get_logger(__name__)
