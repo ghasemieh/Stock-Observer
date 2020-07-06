@@ -10,3 +10,4 @@ logs/*.log
 logs/pipeline.log*
 __pycache__
 
+/email_credential.txt
