@@ -141,9 +141,10 @@ def save_csv(df: DataFrame, path: Path, index: Optional[bool] = False) -> None:
     :param index: A boolean indication of whether or not to save the index of the DataFrame to the csv file.
     :return: None
     """
-    frame_width = df.shape[1]
-    chunk_size = round(256000 / frame_width)
-    df.to_csv(path, index=index, chunksize=chunk_size)
+    if not df.empty:
+        frame_width = df.shape[1]
+        chunk_size = round(256000 / frame_width)
+        df.to_csv(path, index=index, chunksize=chunk_size)
 
 
 def persist_dataframe(dataframe: DataFrame, directory: str, file: str) -> None:
