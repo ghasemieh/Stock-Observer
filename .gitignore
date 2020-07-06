@@ -4,7 +4,7 @@
 .coverage
 .pytest_cache
 *.tmp
-
+core
 data
 logs/*.log
 logs/pipeline.log*

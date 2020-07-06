@@ -21,7 +21,9 @@ class Stock_Observer_Pipeline:
         self.ticker_list_path = Path(config['Data_Sources']['tickers list csv'])
 
     def stock_observer_pipeline(self, arguments: List[str]) -> None:
-        logger.info("Stock Observer Pipeline started.")
+        logger.info("+----------------------------------+")
+        logger.info("| Stock observer pipeline started. |")
+        logger.info("+----------------------------------+")
 
         self.pipeline_report.arguments = ' '.join(arguments)
 
