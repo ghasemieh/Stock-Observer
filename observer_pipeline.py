@@ -43,7 +43,6 @@ class Stock_Observer_Pipeline:
                 try:
                     download = Downloader(self.config)
                     ticker_list = read_csv(self.ticker_list_path)
-                    # ticker_list = {'MSFT'}
                     data_df = download.download(ticker_list=ticker_list)
                 except BaseException as e:
                     pipeline_report_step.mark_failure(str(e))
