@@ -1,13 +1,12 @@
-
-import configuration
+import smtplib
+import ssl
 from configparser import ConfigParser
-from log_setup import get_logger
-import email, smtplib, ssl
-
 from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+import configuration
+from log_setup import get_logger
 
 logger = get_logger(__name__)
 
@@ -20,7 +19,6 @@ class Notifier:
         self.equity_price = config['Data_Sources']['equity price csv']
 
     def notifier(self) -> None:
-        logger.info("Notifier started")
         try:
             credential = open("email_credential.txt", "r")
 
@@ -59,26 +57,39 @@ class Notifier:
             message.attach(part1)
             message.attach(part2)
 
-            filename = self.equity_price  # In same directory as script
+            filename1 = self.equity_price  # In same directory as script
+            filename2 = 'logs/pipeline.log'  # In same directory as script
 
             # Open PDF file in binary mode
-            with open(filename, "rb") as attachment:
+            with open(filename1, "rb") as attachment:
                 # Add file as application/octet-stream
                 # Email client can usually download this automatically as attachment
-                part = MIMEBase("application", "octet-stream")
-                part.set_payload(attachment.read())
+                attach1 = MIMEBase("application", "octet-stream")
+                attach1.set_payload(attachment.read())
+
+            with open(filename2, "rb") as attachment:
+                # Add file as application/octet-stream
+                # Email client can usually download this automatically as attachment
+                attach2 = MIMEBase("application", "octet-stream")
+                attach2.set_payload(attachment.read())
 
             # Encode file in ASCII characters to send by email
-            encoders.encode_base64(part)
+            encoders.encode_base64(attach1)
+            encoders.encode_base64(attach2)
 
             # Add header as key/value pair to attachment part
-            part.add_header(
+            attach1.add_header(
                 "Content-Disposition",
-                f"attachment; filename= {filename}",
+                f"attachment; filename= {filename1}",
+            )
+            attach2.add_header(
+                "Content-Disposition",
+                f"attachment; filename= {filename2}",
             )
 
             # Add attachment to message and convert message to string
-            message.attach(part)
+            message.attach(attach1)
+            message.attach(attach2)
             text = message.as_string()
 
             # msg.add_attachment(file_data, filename=file_name)

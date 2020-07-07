@@ -60,7 +60,7 @@ class Stock_Observer_Pipeline:
                     raise e
 
             if args.notify:
-                logger.info("notifier started.")
+                logger.info("Notifier started.")
                 pipeline_report_step = self.pipeline_report.create_step("Notifier")
                 try:
                     notifier = Notifier(self.config)
