@@ -22,32 +22,29 @@ class Notifier:
     def notifier(self) -> None:
         logger.info("Notifier started")
         try:
-            f = open("email_credential.txt", "r")
+            credential = open("email_credential.txt", "r")
 
-            sender_email = f.readline()
-            password = f.readline()
+            sender_email = credential.readline()
+            password = credential.readline()
 
             receiver_email = [self.alireza_address, self.mehrdad_address]
 
-            body = "This is an email with attachment sent from Python"
             message = MIMEMultipart("alternative")
-            message['Subject'] = 'Test email from Stock Observer'
+            message['Subject'] = 'Daily Equity Price from Stock Observer'
             message['From'] = sender_email
             message['To'] = ', '.join(receiver_email)
 
             # Create the plain-text and HTML version of your message
             text = """\
             Hi,
-            How are you?
-            Real Python has many great tutorials:
-            www.realpython.com"""
+            Check the daily equity price in the attachment.
+            """
+
             html = """\
             <html>
               <body>
                 <p>Hi,<br>
-                   How are you?<br>
-                   <a href="http://www.realpython.com">Real Python</a> 
-                   has many great tutorials.
+                   Check the daily equity price in the attachment.<br>
                 </p>
               </body>
             </html>
