@@ -89,7 +89,7 @@ class PipelineReport:
 
     def log(self):
         logger.info("------------------------------------------------------------------------")
-        logger.info(f"observer_pipeline.py {self.arguments} started {self.start_time}")
+        logger.info(f"stock_observer_pipeline.py {self.arguments} started {self.start_time}")
         for pipeline_report_step in self.steps:
             pipeline_report_step.log()
         logger.info("------------------------------------------------------------------------")

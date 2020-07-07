@@ -1,9 +1,9 @@
 import yfinance as yf
-from configparser import ConfigParser
+from pathlib import Path
+from utils import save_csv
 from pandas import DataFrame
 from log_setup import get_logger
-from utils import save_csv
-from pathlib import Path
+from configparser import ConfigParser
 
 logger = get_logger(__name__)
 
@@ -20,9 +20,6 @@ class Downloader:
                 ticker = item['ticker']
                 logger.info(f"Retrieving data for {ticker}")
                 item_obj = yf.Ticker(ticker)
-
-                # get stock info
-                # print(item_obj.info)
 
                 # get historical market data
                 data = item_obj.history(period="5d")

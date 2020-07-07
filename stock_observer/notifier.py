@@ -1,12 +1,12 @@
-import smtplib
 import ssl
-from configparser import ConfigParser
-from email import encoders
-from email.mime.base import MIMEBase
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+import smtplib
 import configuration
+from email import encoders
 from log_setup import get_logger
+from email.mime.base import MIMEBase
+from email.mime.text import MIMEText
+from configparser import ConfigParser
+from email.mime.multipart import MIMEMultipart
 
 logger = get_logger(__name__)
 
