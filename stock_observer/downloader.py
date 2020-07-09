@@ -4,6 +4,7 @@ from utils import save_csv
 from pandas import DataFrame
 from log_setup import get_logger
 from configparser import ConfigParser
+from stock_observer.database_communication import MySQL_Connection
 
 logger = get_logger(__name__)
 
@@ -12,6 +13,7 @@ class Downloader:
     def __init__(self, config: ConfigParser):
         self.config = config
         self.path = Path(config['Data_Sources']['equity price csv'])
+        self.table_name = config['MySQL']['table name']
 
     def download(self, ticker_list: DataFrame) -> DataFrame:
         data_df = DataFrame()
@@ -31,6 +33,17 @@ class Downloader:
                 data = data[cols]
 
                 data_df = data_df.append(data)
+
+                try:
+                    mysql = MySQL_Connection(config=self.config)
+                    mysql.show_db()
+                    test = mysql.select(f"SELECT * FROM {self.table_name} LIMIT 3;")
+                    mysql.insert_many(table_name=self.table_name, values=data_df)
+                except Exception as e:
+                    logger.error(e)
+                    logger.warning(f"There is no {self.table_name} table in the database")
+                    mysql.create_table(table_name=self.table_name)
+
         except Exception as e:
             logger.error(e)
 
