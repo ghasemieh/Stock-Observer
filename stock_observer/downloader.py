@@ -24,25 +24,26 @@ class Downloader:
                 item_obj = yf.Ticker(ticker)
 
                 # get historical market data
-                data = item_obj.history(period="5d")
-                data['Ticker'] = ticker
-                data.reset_index(level=0, inplace=True)
+                record = item_obj.history(period="5d")
+                record['Ticker'] = ticker
+                record.reset_index(level=0, inplace=True)
 
-                cols = list(data.columns)
+                cols = list(record.columns)
                 cols = [cols[-1]] + cols[:-1]
-                data = data[cols]
+                record = record[cols]
 
-                data_df = data_df.append(data)
+                data_df = data_df.append(record)
 
                 try:
                     mysql = MySQL_Connection(config=self.config)
-                    mysql.show_db()
                     test = mysql.select(f"SELECT * FROM {self.table_name} LIMIT 3;")
-                    mysql.insert_many(table_name=self.table_name, values=data_df)
+                    if test is None:
+                        logger.warning(f"There is no {self.table_name} table in the database")
+                        mysql.create_table(table_name=self.table_name)
+                    mysql.insert_many(table_name=self.table_name, data_df=data_df)
                 except Exception as e:
                     logger.error(e)
-                    logger.warning(f"There is no {self.table_name} table in the database")
-                    mysql.create_table(table_name=self.table_name)
+
 
         except Exception as e:
             logger.error(e)

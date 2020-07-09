@@ -10,25 +10,26 @@ logger = get_logger(__name__)
 
 class MySQL_Connection:
     def __init__(self, config: ConfigParser):
-        # connecting to the database using 'connect()' method
         self.config = config
-        server = "localhost"
-        database = "stockDB"
-        username = "root"
-        password = "password"
-        table_name = "equity_price"
-        # self.host = config['MySQL']['server']
-        # self.user = config['MySQL']['username']
-        # self.passwd = config['MySQL']['password']
-        # self.database = config['MySQL']['database']
-        db = mysql.connect(host=server, user=username, passwd=password, database=database)
+        # connecting to the database using 'connect()' method
+        self.server = config['MySQL']['server']
+        self.username = config['MySQL']['username']
+        self.password = config['MySQL']['password']
+        self.database = config['MySQL']['database']
+        self.conection = mysql.connect(host=self.server,
+                                       user=self.username,
+                                       passwd=self.password,
+                                       database=self.database)
         # creating an instance of 'cursor' class which is used to execute the 'SQL' statements in 'Python'
-        self.cursor = db.cursor()
+        self.cursor = self.conection.cursor()
+
+    def __del__(self):
+        self.cursor.close()
+        self.conection.close()
 
     def show_db(self):
         try:
             self.cursor.execute("SHOW DATABASES")
-
             # 'fetchall()' method fetches all the rows from the last executed statement
             databases = self.cursor.fetchall()  # it returns a list of all databases present
 
@@ -40,7 +41,17 @@ class MySQL_Connection:
 
     def create_table(self, table_name: str) -> None:
         try:
-            self.cursor.execute(f"CREATE TABLE {table_name} (name VARCHAR(255), user_name VARCHAR(255));")
+            self.cursor.execute(f"CREATE TABLE {table_name} ("
+                                f"ticker VARCHAR(255), "
+                                f"date_equity VARCHAR(255),"
+                                f"open_price float,"
+                                f"high_price float,"
+                                f"low_price float,"
+                                f"close_price float,"
+                                f"volume float,"
+                                f"dividends float,"
+                                f"stock_splits float"
+                                f");")
         except Exception as e:
             logger.error("create table error")
             logger.error(e)
@@ -75,19 +86,23 @@ class MySQL_Connection:
             logger.error("insert error")
             logger.error(e)
 
-    def insert_many(self, table_name, values: DataFrame) -> None:
+    def insert_many(self, table_name, data_df: DataFrame) -> None:
         """
-        :param table_name:
-        :param values: storing values in a variable
+        :param data_df: storing values in a variable
                 values = [("Peter", "peter"), ("Amy", "amy"), ("Michael", "michael"), ("Hennah", "hennah")]
+        :param table_name:
         :return: None
         """
+        records = data_df.to_records(index=False)
+        values_list = list(records)
         try:
-            query = f"INSERT INTO {table_name} (name, user_name) VALUES (%s, %s)"
+            query = f"INSERT INTO {table_name} (" \
+                    f"ticker, date_equity, open_price, high_price, low_price, close_price, volume, dividends, stock_splits)" \
+                    f"VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s )"
             # executing the query with values
-            self.cursor.execute(query, values)
+            self.cursor.execute(query, values_list)
             # to make final output we have to run the 'commit()' method of the database object
-            self.db.commit()
+            self.cursor.commit()
             print(self.cursor.rowcount, "record inserted")
         except Exception as e:
             logger.error("insert many error")
