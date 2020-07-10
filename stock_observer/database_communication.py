@@ -21,6 +21,7 @@ class MySQL_Connection:
                                        passwd=self.password,
                                        database=self.database)
         # creating an instance of 'cursor' class which is used to execute the 'SQL' statements in 'Python'
+
         self.cursor = self.conection.cursor()
 
     def __del__(self):
@@ -43,7 +44,7 @@ class MySQL_Connection:
         try:
             self.cursor.execute(f"CREATE TABLE {table_name} ("
                                 f"ticker VARCHAR(255), "
-                                f"date_equity VARCHAR(255),"
+                                # f"date_equity VARCHAR(255),"
                                 f"open_price float,"
                                 f"high_price float,"
                                 f"low_price float,"
@@ -55,6 +56,8 @@ class MySQL_Connection:
         except Exception as e:
             logger.error("create table error")
             logger.error(e)
+        finally:
+            self.conection.close()
 
     def show_table(self) -> None:
         try:
@@ -79,12 +82,14 @@ class MySQL_Connection:
             # executing the query with values
             self.cursor.execute(query, values)
             # to make final output we have to run the 'commit()' method of the database object
-            self.db.commit()
+            self.conection.commit()
 
-            print(self.cursor.rowcount, "record inserted")
+            logger.info(f"{self.cursor.rowcount} record inserted")
         except Exception as e:
             logger.error("insert error")
             logger.error(e)
+        finally:
+            self.conection.close()
 
     def insert_many(self, table_name, data_df: DataFrame) -> None:
         """
@@ -93,20 +98,22 @@ class MySQL_Connection:
         :param table_name:
         :return: None
         """
-        records = data_df.to_records(index=False)
-        values_list = list(records)
+        data_df.drop(columns='Date', inplace=True)
+        values_list = [tuple(x) for x in data_df.to_numpy()]
         try:
             query = f"INSERT INTO {table_name} (" \
-                    f"ticker, date_equity, open_price, high_price, low_price, close_price, volume, dividends, stock_splits)" \
-                    f"VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s )"
+                    f"ticker, open_price, high_price, low_price, close_price, volume, dividends, stock_splits) " \
+                    f"VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
             # executing the query with values
-            self.cursor.execute(query, values_list)
+            self.cursor.executemany(query, values_list)
             # to make final output we have to run the 'commit()' method of the database object
-            self.cursor.commit()
-            print(self.cursor.rowcount, "record inserted")
+            self.conection.commit()
+            logger.info(f"{self.cursor.rowcount} record inserted")
         except Exception as e:
             logger.error("insert many error")
             logger.error(e)
+        finally:
+            self.conection.close()
 
     def select(self, query) -> DataFrame:
         try:
@@ -114,13 +121,13 @@ class MySQL_Connection:
             self.cursor.execute(query)
             # fetching all records from the 'cursor' object
             records = self.cursor.fetchall()
-            data = DataFrame()
-            for record in records:
-                data = data.append(record)
+            data = DataFrame(records, columns=['Ticker', 'open', 'high', 'low', 'close', 'volume', 'dividends', 'stock_splits'])
             return data
         except Exception as e:
             logger.error("select error")
             logger.error(e)
+        finally:
+            self.conection.close()
 
     def delete(self, query) -> None:
         """
@@ -131,7 +138,7 @@ class MySQL_Connection:
             # executing the query
             self.cursor.execute(query)
             # final step to tell the database that we have changed the table data
-            self.db.commit()
+            self.cursor.commit()
         except Exception as e:
             logger.error("delete error")
             logger.error(e)
@@ -145,7 +152,7 @@ class MySQL_Connection:
             # executing the query
             self.cursor.execute(query)
             # final step to tell the database that we have changed the table data
-            self.db.commit()
+            self.cursor.commit()
         except Exception as e:
             logger.error("update error")
             logger.error(e)

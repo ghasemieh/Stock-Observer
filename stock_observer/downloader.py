@@ -18,6 +18,12 @@ class Downloader:
     def download(self, ticker_list: DataFrame) -> DataFrame:
         data_df = DataFrame()
         try:
+            mysql = MySQL_Connection(config=self.config)
+            test = mysql.select(f"SELECT * FROM {self.table_name} LIMIT 3;")
+            if test is None:
+                logger.warning(f"There is no {self.table_name} table in the database")
+                mysql.create_table(table_name=self.table_name)
+
             for index, item in ticker_list.iterrows():
                 ticker = item['ticker']
                 logger.info(f"Retrieving data for {ticker}")
@@ -32,19 +38,12 @@ class Downloader:
                 cols = [cols[-1]] + cols[:-1]
                 record = record[cols]
 
-                data_df = data_df.append(record)
-
-                try:
+                if not record.empty:
+                    data_df = data_df.append(record)
                     mysql = MySQL_Connection(config=self.config)
-                    test = mysql.select(f"SELECT * FROM {self.table_name} LIMIT 3;")
-                    if test is None:
-                        logger.warning(f"There is no {self.table_name} table in the database")
-                        mysql.create_table(table_name=self.table_name)
-                    mysql.insert_many(table_name=self.table_name, data_df=data_df)
-                except Exception as e:
-                    logger.error(e)
-
-
+                    mysql.insert_many(table_name=self.table_name, data_df=record)
+                else:
+                    logger.warning(f"{ticker}: No data found for this date range, symbol may be delisted")
         except Exception as e:
             logger.error(e)
 
