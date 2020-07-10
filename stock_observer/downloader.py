@@ -1,9 +1,10 @@
 import yfinance as yf
 from pathlib import Path
 from utils import save_csv
-from pandas import DataFrame
+from pandas import DataFrame, to_datetime
 from log_setup import get_logger
 from configparser import ConfigParser
+from datetime import date
 from stock_observer.database_communication import MySQL_Connection
 
 logger = get_logger(__name__)
@@ -37,6 +38,9 @@ class Downloader:
                 cols = list(record.columns)
                 cols = [cols[-1]] + cols[:-1]
                 record = record[cols]
+                record = record.rename(columns={'Ticker': 'ticker', 'Date': 'date', 'Open': 'open', 'Low': 'low',
+                                                'High': 'high', 'Close': 'close', 'Volume': 'volume',
+                                                'Dividends': 'dividends', 'Stock Splits': 'stock_splits'})
 
                 if not record.empty:
                     data_df = data_df.append(record)
@@ -46,6 +50,7 @@ class Downloader:
                     logger.warning(f"{ticker}: No data found for this date range, symbol may be delisted")
         except Exception as e:
             logger.error(e)
-
+        data_df['date'] = to_datetime(data_df['date'])
+        data_df['date'] = data_df['date'].map(lambda x: x.date())
         save_csv(data_df, self.path)
         return data_df

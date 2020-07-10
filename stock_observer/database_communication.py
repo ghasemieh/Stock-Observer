@@ -44,15 +44,14 @@ class MySQL_Connection:
         try:
             self.cursor.execute(f"CREATE TABLE {table_name} ("
                                 f"ticker VARCHAR(255), "
-                                # f"date_equity VARCHAR(255),"
-                                f"open_price float,"
-                                f"high_price float,"
-                                f"low_price float,"
-                                f"close_price float,"
+                                f"date date,"
+                                f"open float,"
+                                f"high float,"
+                                f"low float,"
+                                f"close float,"
                                 f"volume float,"
                                 f"dividends float,"
-                                f"stock_splits float"
-                                f");")
+                                f"stock_splits float);")
         except Exception as e:
             logger.error("create table error")
             logger.error(e)
@@ -68,15 +67,17 @@ class MySQL_Connection:
             logger.error("show table error")
             logger.error(e)
 
-    def insert(self, table_name, values) -> None:
+    def insert(self, table_name, data_df: DataFrame) -> None:
         """
         :param table_name:
-        :param values: storing values in a variable
+        :param data_df: storing values in a variable
                 values = ("Hafeez", "hafeez")
         :return: None
         """
+        values = [tuple(x) for x in data_df.to_numpy()]
+        cols = ", ".join([str(i) for i in data_df.columns.tolist()])
         try:
-            query = f"INSERT INTO {table_name} (name, user_name) VALUES (%s, %s)"
+            query = f"INSERT INTO {table_name} (" + cols + ") VALUES (" + "%s," * (data_df.shape[1] - 1) + "%s)"
             # executing the query with values
             self.cursor.execute(query, values)
             # to make final output we have to run the 'commit()' method of the database object
@@ -94,12 +95,11 @@ class MySQL_Connection:
         :param table_name:
         :return: None
         """
-        data_df.drop(columns='Date', inplace=True)
+        # data_df.drop(columns='Date', inplace=True)
         values_list = [tuple(x) for x in data_df.to_numpy()]
+        cols = ", ".join([str(i) for i in data_df.columns.tolist()])
         try:
-            query = f"INSERT INTO {table_name} (" \
-                    f"ticker, open_price, high_price, low_price, close_price, volume, dividends, stock_splits) " \
-                    f"VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
+            query = f"INSERT INTO {table_name} (" + cols + ") VALUES (" + "%s," * (data_df.shape[1] - 1) + "%s)"
             # executing the query with values
             self.cursor.executemany(query, values_list)
             # to make final output we have to run the 'commit()' method of the database object
@@ -115,7 +115,8 @@ class MySQL_Connection:
             self.cursor.execute(query)
             # fetching all records from the 'cursor' object
             records = self.cursor.fetchall()
-            data = DataFrame(records, columns=['Ticker', 'open', 'high', 'low', 'close', 'volume', 'dividends', 'stock_splits'])
+            data = DataFrame(records, columns=['ticker', 'date', 'open', 'high', 'low',
+                                               'close', 'volume', 'dividends', 'stock_splits'])
             return data
         except Exception as e:
             logger.error("select error")
