@@ -56,8 +56,6 @@ class MySQL_Connection:
         except Exception as e:
             logger.error("create table error")
             logger.error(e)
-        finally:
-            self.conection.close()
 
     def show_table(self) -> None:
         try:
@@ -88,8 +86,6 @@ class MySQL_Connection:
         except Exception as e:
             logger.error("insert error")
             logger.error(e)
-        finally:
-            self.conection.close()
 
     def insert_many(self, table_name, data_df: DataFrame) -> None:
         """
@@ -112,8 +108,6 @@ class MySQL_Connection:
         except Exception as e:
             logger.error("insert many error")
             logger.error(e)
-        finally:
-            self.conection.close()
 
     def select(self, query) -> DataFrame:
         try:
@@ -126,8 +120,6 @@ class MySQL_Connection:
         except Exception as e:
             logger.error("select error")
             logger.error(e)
-        finally:
-            self.conection.close()
 
     def delete(self, query) -> None:
         """
