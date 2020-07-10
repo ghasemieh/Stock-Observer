@@ -4,8 +4,7 @@ from utils import save_csv
 from pandas import DataFrame, to_datetime
 from log_setup import get_logger
 from configparser import ConfigParser
-from datetime import date
-from stock_observer.database_communication import MySQL_Connection
+from stock_observer.database.database_communication import MySQL_Connection
 
 logger = get_logger(__name__)
 
@@ -31,7 +30,7 @@ class Downloader:
                 item_obj = yf.Ticker(ticker)
 
                 # get historical market data
-                record = item_obj.history(period="5d")
+                record = item_obj.history(period="100d")
                 record['Ticker'] = ticker
                 record.reset_index(level=0, inplace=True)
 

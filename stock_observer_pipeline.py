@@ -1,6 +1,7 @@
 import sys
 import argparse
 import configuration
+from stock_observer.analyzer import Analyzer
 from stock_observer.notifier import Notifier
 from utils import read_csv
 from typing import List
@@ -22,6 +23,7 @@ class Stock_Observer_Pipeline:
         self.ticker_list_path = Path(config['Data_Sources']['tickers list csv'])
 
     def stock_observer_pipeline(self, arguments: List[str]) -> None:
+        global data_df
         logger.info("+----------------------------------+")
         logger.info("| Stock observer pipeline started. |")
         logger.info("+----------------------------------+")
@@ -52,9 +54,10 @@ class Stock_Observer_Pipeline:
                 logger.info("Analyzer started.")
                 pipeline_report_step = self.pipeline_report.create_step("Analyzer")
                 try:
-                    None
-                    # analyzer = Analyzer(self.config)
-                    # analyzer.analysis(data_df=data_df)
+                    import pandas as pd
+                    data_df = pd.read_csv('data/downloaded/equity_price.csv')
+                    analyzer = Analyzer(self.config)
+                    analyzer.analysis(data_df=data_df)
                 except BaseException as e:
                     pipeline_report_step.mark_failure(str(e))
                     raise e
