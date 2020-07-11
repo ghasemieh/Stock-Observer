@@ -26,6 +26,7 @@ def add_moving_avg(data_df: DataFrame, n_days: int) -> DataFrame:
     data_df = add_rolling_ave(data_df=data_df, n_days=n_days, feature='op')
     data_df.rename(columns={f'{n_days}_days_rolling_result': f'{n_days}_days_moving_avg'}, inplace=True)
     data_df.drop(columns='op', inplace=True)
+    data_df = data_df.round(3)
     return data_df
 
 
@@ -44,12 +45,13 @@ def add_cci(data_df: DataFrame, n_days: int) -> DataFrame:
     data_df.rename(columns={f'{n_days}_days_rolling_result': f'{n_days}_days_mean_deviation'}, inplace=True)
 
     # compute Commodity Channel Index (CCI): (typical_price - moving_average)/(0.015 * mean_deviation)
-    data_df['CCI'] = (data_df['typical_price'] - data_df[f'{n_days}_days_moving_avg_of_typical_price']) / (
-            0.015 * data_df[f'{n_days}_days_mean_deviation'])
+    data_df[f'{n_days}_days_CCI'] = (data_df['typical_price'] - data_df[f'{n_days}_days_moving_avg_of_typical_price']) \
+                                    / (0.015 * data_df[f'{n_days}_days_mean_deviation'])
 
     data_df.drop(columns=['typical_price', 'tp-mv',
                           f'{n_days}_days_moving_avg_of_typical_price',
                           f'{n_days}_days_mean_deviation'], inplace=True)
+    data_df = data_df.round(3)
     return data_df
 
 
@@ -58,20 +60,20 @@ def add_atr(data_df: DataFrame, n_days: int) -> DataFrame:
     data_df['H-P'] = abs(data_df['high'] - data_df['close'])
     data_df['L-P'] = abs(data_df['close'] - data_df['low'])
     max_list = []
-    data_df = data_df.round(3)
     for index, row in data_df.iterrows():
         max_list.append(max(row['H-L'], row['H-P'], row['L-P']))
     data_df['true_range'] = DataFrame(max_list, columns=['true_range'])
     data_df = add_rolling_ave(data_df=data_df, n_days=n_days, feature='true_range')
     data_df.rename(columns={f'{n_days}_days_rolling_result': f'{n_days}_days_ATR'}, inplace=True)
     data_df.drop(columns=['H-L', 'H-P', 'L-P', 'true_range'], inplace=True)
+    data_df = data_df.round(3)
     return data_df
 
 
 def add_bollinger_bands(data_df: DataFrame, n_days: int) -> DataFrame:
     data_df.sort_values(by=['date'], inplace=True)
     data_df.index = data_df.date
-    rolling_sd_df = data_df.groupby(by='ticker')['20_days_moving_avg'].rolling(window=n_days, min_periods=1)\
+    rolling_sd_df = data_df.groupby(by='ticker')['20_days_moving_avg'].rolling(window=n_days, min_periods=1) \
         .std().reset_index(drop=False)
     rolling_sd_df.rename(columns={'20_days_moving_avg': f'{n_days}_standard_deviation_result'}, inplace=True)
     data_df.reset_index(drop=True, inplace=True)
@@ -81,12 +83,14 @@ def add_bollinger_bands(data_df: DataFrame, n_days: int) -> DataFrame:
 
     data_df['bollinger_lower_band'] = data_df['20_days_moving_avg'] - 2 * data_df[f'{n_days}_standard_deviation_result']
     data_df['bollinger_upper_band'] = data_df['20_days_moving_avg'] + 2 * data_df[f'{n_days}_standard_deviation_result']
+    data_df = data_df.round(4)
     return data_df
 
 
 class Analyzer:
-    def __init__(self, confi: ConfigParser):
-        self.config = confi
+    def __init__(self, config: ConfigParser):
+        self.config = config
+        self.path = Path(config['Data_Sources']['processed equity price csv'])
 
     def analysis(self, data_df: DataFrame) -> DataFrame:
         data_df = add_moving_avg(data_df=data_df, n_days=5)
@@ -94,4 +98,6 @@ class Analyzer:
         data_df = add_cci(data_df=data_df, n_days=30)
         data_df = add_atr(data_df=data_df, n_days=20)
         data_df = add_bollinger_bands(data_df=data_df, n_days=20)
+
+        save_csv(data_df, self.path)
         return data_df

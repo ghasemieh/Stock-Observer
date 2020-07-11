@@ -57,7 +57,7 @@ class Stock_Observer_Pipeline:
                     import pandas as pd
                     data_df = pd.read_csv('data/downloaded/equity_price.csv')
                     analyzer = Analyzer(self.config)
-                    data_df_with_ind = analyzer.analysis(data_df=data_df)
+                    processed_data_df = analyzer.analysis(data_df=data_df)
                 except BaseException as e:
                     pipeline_report_step.mark_failure(str(e))
                     raise e
