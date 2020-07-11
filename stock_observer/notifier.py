@@ -79,6 +79,7 @@ class Notifier:
             # Add attachment to message and convert message to string
             message.attach(attach1)
 
+
             # Attachment 2 -------------------------
             # filename2 = self.processed_equity_price  # In same directory as script
             # with open(filename2, "rb") as attachment:
