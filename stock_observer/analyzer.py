@@ -3,6 +3,7 @@ from utils import save_csv
 from pandas import DataFrame, to_datetime
 from log_setup import get_logger
 from configparser import ConfigParser
+from statistics import stdev
 
 logger = get_logger(__name__)
 
@@ -57,12 +58,20 @@ def add_atr(data_df: DataFrame, n_days: int) -> DataFrame:
     data_df['H-L'] = abs(data_df['high'] - data_df['low'])
     data_df['H-P'] = abs(data_df['high'] - data_df['close'])
     data_df['L-P'] = abs(data_df['close'] - data_df['low'])
-    for tuple in data_df.itertuples():
-        tuple
-    data_df['true_range'] = max(data_df['H-L'], data_df['H-P'], data_df['L-P'])
-
+    max_list = []
+    data_df = data_df.round(3)
+    for index, row in data_df.iterrows():
+        max_list.append(max(row['H-L'], row['H-P'], row['L-P']))
+    data_df['true_range'] = DataFrame(max_list, columns=['true_range'])
     data_df = add_rolling_ave(data_df=data_df, n_days=n_days, feature='true_range')
-    data_df.rename(columns={f'{n_days}_days_rolling_result': f'{n_days}_ATR'}, inplace=True)
+    data_df.rename(columns={f'{n_days}_days_rolling_result': f'{n_days}_days_ATR'}, inplace=True)
+    data_df.drop(columns=['H-L', 'H-P', 'L-P', 'true_range'], inplace=True)
+    return data_df
+
+
+def add_bollinger_bands(data_df: DataFrame) -> DataFrame:
+    data_df['bollinger_bands_lower'] = data_df['20_days_moving_avg'] - 2 * stdev(data_df['20_days_moving_avg'])
+    data_df['bollinger_bands_upper'] = data_df['20_days_moving_avg'] + 2 * stdev(data_df['20_days_moving_avg'])
     return data_df
 
 
@@ -72,7 +81,8 @@ class Analyzer:
 
     def analysis(self, data_df: DataFrame) -> DataFrame:
         # data_df = add_moving_avg(data_df=data_df, n_days=5)
-        # data_df = add_moving_avg(data_df=data_df, n_days=20)
+        data_df = add_moving_avg(data_df=data_df, n_days=20)
         # data_df = add_cci(data_df=data_df, n_days=30)
-        data_df = add_atr(data_df=data_df, n_days=20)
+        # data_df = add_atr(data_df=data_df, n_days=20)
+        add_bollinger_bands(data_df=data_df) #TODO wrong formula for SD
         return data_df
