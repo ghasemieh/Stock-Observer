@@ -58,7 +58,7 @@ def add_atr(data_df: DataFrame, n_days: int) -> DataFrame:
     data_df['H-P'] = abs(data_df['high'] - data_df['close'])
     data_df['L-P'] = abs(data_df['close'] - data_df['low'])
     for tuple in data_df.itertuples():
-        tuple
+        # tuple
     data_df['true_range'] = max(data_df['H-L'], data_df['H-P'], data_df['L-P'])
 
     data_df = add_rolling_ave(data_df=data_df, n_days=n_days, feature='true_range')
