@@ -58,9 +58,8 @@ class Notifier:
             message.attach(part1)
             message.attach(part2)
 
-            filename1 = self.equity_price  # In same directory as script
-            filename2 = self.processed_equity_price  # In same directory as script
-
+            # Attachment Section --------------------------------
+            filename1 = "logs/pipeline.log"  # In same directory as script
             # Open PDF file in binary mode
             with open(filename1, "rb") as attachment:
                 # Add file as application/octet-stream
@@ -68,32 +67,38 @@ class Notifier:
                 attach1 = MIMEBase("application", "octet-stream")
                 attach1.set_payload(attachment.read())
 
-            with open(filename2, "rb") as attachment:
-                # Add file as application/octet-stream
-                # Email client can usually download this automatically as attachment
-                attach2 = MIMEBase("application", "octet-stream")
-                attach2.set_payload(attachment.read())
-
             # Encode file in ASCII characters to send by email
             encoders.encode_base64(attach1)
-            encoders.encode_base64(attach2)
 
             # Add header as key/value pair to attachment part
             attach1.add_header(
                 "Content-Disposition",
                 f"attachment; filename= {filename1}",
             )
-            attach2.add_header(
-                "Content-Disposition",
-                f"attachment; filename= {filename2}",
-            )
 
             # Add attachment to message and convert message to string
             message.attach(attach1)
-            message.attach(attach2)
+
+            # Attachment 2 -------------------------
+            # filename2 = self.processed_equity_price  # In same directory as script
+            # with open(filename2, "rb") as attachment:
+            #     # Add file as application/octet-stream
+            #     # Email client can usually download this automatically as attachment
+            #     attach2 = MIMEBase("application", "octet-stream")
+            #     attach2.set_payload(attachment.read())
+            #
+            # encoders.encode_base64(attach2)
+            #
+            # attach2.add_header(
+            #     "Content-Disposition",
+            #     f"attachment; filename= {filename2}",
+            # )
+            #
+            # message.attach(attach2)
+            # ---------------------------------------
+
             text = message.as_string()
 
-            # msg.add_attachment(file_data, filename=file_name)
             context = ssl.create_default_context()
             with smtplib.SMTP_SSL('smtp.gmail.com', 465, context=context) as smtp:
                 smtp.login(sender_email, password)
@@ -102,6 +107,7 @@ class Notifier:
 
         except Exception as e:
             logger.error(e)
+            raise e
 
 
 if __name__ == '__main__':
