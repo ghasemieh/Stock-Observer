@@ -46,7 +46,7 @@ def add_cci(data_df: DataFrame, n_days: int) -> DataFrame:
 
     # compute Commodity Channel Index (CCI): (typical_price - moving_average)/(0.015 * mean_deviation)
     data_df[f'{n_days}_days_mean_deviation'] = data_df[f'{n_days}_days_mean_deviation'] \
-        .map(lambda x: 0.00001 if x == 0 else None)
+        .map(lambda x: 0.00001 if x == 0 else x)
     data_df[f'{n_days}_days_CCI'] = (data_df['typical_price'] - data_df[f'{n_days}_days_moving_avg_of_typical_price']) \
                                     / (0.015 * data_df[f'{n_days}_days_mean_deviation'])
 
