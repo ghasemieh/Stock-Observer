@@ -15,29 +15,17 @@ class MySQL_Connection:
         self.username = config['MySQL']['username']
         self.password = config['MySQL']['password']
         self.database = config['MySQL']['database']
-        self.main_table_name = config['MySQL']['main table name']
-        self.conection = mysql.connect(host=self.server,
-                                       user=self.username,
-                                       passwd=self.password,
-                                       database=self.database)
+        self.connection = mysql.connect(host=self.server,
+                                        user=self.username,
+                                        passwd=self.password,
+                                        database=self.database)
         # creating an instance of 'cursor' class which is used to execute the 'SQL' statements in 'Python'
 
-        self.cursor = self.conection.cursor()
+        self.cursor = self.connection.cursor()
 
     def __del__(self):
         self.cursor.close()
-        self.conection.close()
-
-    def show_table(self) -> None:
-        try:
-            self.cursor.execute("SHOW TABLES")
-            tables = self.cursor.fetchall()  # it returns list of tables present in the database
-            # showing all the tables one by one
-            for table in tables:
-                print(table)
-        except Exception as e:
-            logger.error("show table error")
-            logger.error(e)
+        self.connection.close()
 
     def insert(self, table_name, data_df: DataFrame) -> None:
         """
@@ -53,12 +41,12 @@ class MySQL_Connection:
             # executing the query with values
             self.cursor.execute(query, values)
             # to make final output we have to run the 'commit()' method of the database object
-            self.conection.commit()
+            self.connection.commit()
 
             logger.info(f"{self.cursor.rowcount} record inserted")
         except Exception as e:
-            logger.error("insert error")
-            logger.error(e)
+            logger.error(f"insert error: {e}")
+            raise e
 
     def insert_many(self, table_name, data_df: DataFrame) -> None:
         """
@@ -75,24 +63,25 @@ class MySQL_Connection:
             # executing the query with values
             self.cursor.executemany(query, values_list)
             # to make final output we have to run the 'commit()' method of the database object
-            self.conection.commit()
+            self.connection.commit()
             logger.info(f"{self.cursor.rowcount} record inserted")
         except Exception as e:
-            logger.error("insert many error")
-            logger.error(e)
+            logger.error(f"insert many error: {e}")
+            raise e
 
-    def insert_df(self, data_df: DataFrame, if_exists='fail'):
+    def insert_df(self, data_df: DataFrame, table_name: str, if_exists='fail'):
         engine = create_engine(f'mysql+pymysql://{self.username}:{self.password}@{self.server}/{self.database}')
         db_connection = engine.connect()
         try:
-            data_df.to_sql(self.main_table_name, db_connection, if_exists=if_exists, index=False)
+            data_df.to_sql(table_name, db_connection, if_exists=if_exists, index=False)
         except ValueError as vx:
             logger.error(vx)
+            raise vx
         except Exception as ex:
             logger.error(ex)
+            raise ex
         else:
-            logger.info(f"Table {self.main_table_name} created successfully.")
-            logger.info(f"Data insertion into the {self.main_table_name} is done")
+            logger.info(f"Data insertion into the {table_name} is done")
         finally:
             db_connection.close()
 
@@ -103,8 +92,7 @@ class MySQL_Connection:
             data = read_sql(query, db_connection)
             return data
         except Exception as e:
-            logger.error("select error")
-            logger.error(e)
+            logger.error(f"select error: {e}")
         finally:
             db_connection.close()
 
@@ -119,5 +107,4 @@ class MySQL_Connection:
             # final step to tell the database that we have changed the table data
             self.cursor.commit()
         except Exception as e:
-            logger.error("delete error")
-            logger.error(e)
+            logger.error(f"delete error: {e}")

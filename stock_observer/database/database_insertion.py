@@ -14,8 +14,8 @@ class DB_Insertion:
         mysql = MySQL_Connection(config=self.config)
         test = mysql.select(f"SELECT * FROM {table_name} LIMIT 3;")
         if test is None:
-            logger.warning(f"There is no {table_name} table in the database")
-            mysql.insert_df(data_df=data_df, if_exists='fail')
+            logger.info(f"Start creating {table_name} table in the database")
+            mysql.insert_df(data_df=data_df, table_name=table_name, if_exists='fail')
         else:
-            logger.info(f"Updating {table_name} table in the database")
-            mysql.insert_df(data_df=data_df, if_exists='replace')
+            logger.info(f"Update {table_name} table in the database")
+            mysql.insert_df(data_df=data_df, table_name=table_name, if_exists='replace')

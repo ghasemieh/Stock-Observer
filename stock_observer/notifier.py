@@ -17,6 +17,7 @@ class Notifier:
         self.alireza_address = config['Email']['alireza address']
         self.mehrdad_address = config['Email']['mehrdad address']
         self.equity_price = config['Data_Sources']['equity price csv']
+        self.processed_equity_price = config['Data_Sources']['processed equity price csv']
 
     def notifier(self) -> None:
         try:
@@ -58,7 +59,7 @@ class Notifier:
             message.attach(part2)
 
             filename1 = self.equity_price  # In same directory as script
-            filename2 = 'logs/pipeline.log'  # In same directory as script
+            filename2 = self.processed_equity_price  # In same directory as script
 
             # Open PDF file in binary mode
             with open(filename1, "rb") as attachment:

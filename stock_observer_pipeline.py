@@ -1,7 +1,7 @@
 import sys
 import argparse
 import configuration
-from stock_observer.analyzer import Analyzer
+from stock_observer.transformer import Transformer
 from stock_observer.database.database_insertion import DB_Insertion
 from stock_observer.notifier import Notifier
 from utils import read_csv
@@ -34,7 +34,7 @@ class Stock_Observer_Pipeline:
 
         parser.add_argument("-D", "--download", help="download raw data files", action="store_true")
         parser.add_argument("-S", "--stage_db", help="download raw data files", action="store_true")
-        parser.add_argument("-A", "--analyze", help="download raw data files", action="store_true")
+        parser.add_argument("-T", "--transform", help="download raw data files", action="store_true")
         parser.add_argument("-M", "--main_db", help="download raw data files", action="store_true")
         parser.add_argument("-N", "--notify", help="download raw data files", action="store_true")
 
@@ -63,14 +63,14 @@ class Stock_Observer_Pipeline:
                     pipeline_report_step.mark_failure(str(e))
                     raise e
 
-            if args.analyze:
-                logger.info("Analyzer started.")
-                pipeline_report_step = self.pipeline_report.create_step("Analyzer")
+            if args.transform:
+                logger.info("Transformation started.")
+                pipeline_report_step = self.pipeline_report.create_step("Transformation")
                 try:
-                    # import pandas as pd
-                    # data_df = pd.read_csv('data/downloaded/equity_price.csv')
-                    analyzer = Analyzer(self.config)
-                    processed_data_df = analyzer.analysis(data_df=data_df)
+                    import pandas as pd
+                    data_df = pd.read_csv('data/downloaded/equity_price.csv')
+                    transformation = Transformer(self.config)
+                    processed_data_df = transformation.transform(data_df=data_df)
                 except BaseException as e:
                     pipeline_report_step.mark_failure(str(e))
                     raise e
@@ -80,8 +80,8 @@ class Stock_Observer_Pipeline:
                 pipeline_report_step = self.pipeline_report.create_step("Main DB Insertion")
                 main_table_name = self.config['MySQL']['main table name']
                 try:
-                    import pandas as pd
-                    processed_data_df = pd.read_csv('data/processed/processed_equity_price.csv')
+                    # import pandas as pd
+                    # processed_data_df = pd.read_csv('data/processed/processed_equity_price.csv')
                     main_db = DB_Insertion(self.config)
                     main_db.insertion(data_df=processed_data_df, table_name=main_table_name)
                 except BaseException as e:

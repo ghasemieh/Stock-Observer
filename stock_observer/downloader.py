@@ -23,7 +23,7 @@ class Downloader:
                 item_obj = yf.Ticker(ticker)
 
                 # get historical market data
-                record = item_obj.history(period="100d")
+                record = item_obj.history(period="max")
                 record['Ticker'] = ticker
                 record.reset_index(level=0, inplace=True)
 
@@ -42,5 +42,6 @@ class Downloader:
             logger.error(e)
         data_df['date'] = to_datetime(data_df['date'])
         data_df['date'] = data_df['date'].map(lambda x: x.date())
+        logger.info(f"Data size is {data_df.shape}")
         save_csv(data_df, self.path)
         return data_df
