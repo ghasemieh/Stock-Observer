@@ -17,7 +17,6 @@ def add_rolling_ave(data_df: DataFrame, n_days: int, feature: str) -> DataFrame:
     data_df.reset_index(drop=True, inplace=True)
     data_df = data_df.merge(rolling_avg_df, on=['ticker', 'date'], how='inner')
     data_df.sort_values(by=['ticker', 'date'], inplace=True)
-
     data_df.reset_index(drop=True, inplace=True)
     return data_df
 
@@ -69,20 +68,30 @@ def add_atr(data_df: DataFrame, n_days: int) -> DataFrame:
     return data_df
 
 
-def add_bollinger_bands(data_df: DataFrame) -> DataFrame:
-    data_df['bollinger_bands_lower'] = data_df['20_days_moving_avg'] - 2 * stdev(data_df['20_days_moving_avg'])
-    data_df['bollinger_bands_upper'] = data_df['20_days_moving_avg'] + 2 * stdev(data_df['20_days_moving_avg'])
+def add_bollinger_bands(data_df: DataFrame, n_days: int) -> DataFrame:
+    data_df.sort_values(by=['date'], inplace=True)
+    data_df.index = data_df.date
+    rolling_sd_df = data_df.groupby(by='ticker')['20_days_moving_avg'].rolling(window=n_days, min_periods=1)\
+        .std().reset_index(drop=False)
+    rolling_sd_df.rename(columns={'20_days_moving_avg': f'{n_days}_standard_deviation_result'}, inplace=True)
+    data_df.reset_index(drop=True, inplace=True)
+    data_df = data_df.merge(rolling_sd_df, on=['ticker', 'date'], how='inner')
+    data_df.sort_values(by=['ticker', 'date'], inplace=True)
+    data_df.reset_index(drop=True, inplace=True)
+
+    data_df['bollinger_lower_band'] = data_df['20_days_moving_avg'] - 2 * data_df[f'{n_days}_standard_deviation_result']
+    data_df['bollinger_upper_band'] = data_df['20_days_moving_avg'] + 2 * data_df[f'{n_days}_standard_deviation_result']
     return data_df
 
 
 class Analyzer:
     def __init__(self, confi: ConfigParser):
-        None
+        self.config = confi
 
     def analysis(self, data_df: DataFrame) -> DataFrame:
-        # data_df = add_moving_avg(data_df=data_df, n_days=5)
+        data_df = add_moving_avg(data_df=data_df, n_days=5)
         data_df = add_moving_avg(data_df=data_df, n_days=20)
-        # data_df = add_cci(data_df=data_df, n_days=30)
-        # data_df = add_atr(data_df=data_df, n_days=20)
-        add_bollinger_bands(data_df=data_df) #TODO wrong formula for SD
+        data_df = add_cci(data_df=data_df, n_days=30)
+        data_df = add_atr(data_df=data_df, n_days=20)
+        data_df = add_bollinger_bands(data_df=data_df, n_days=20)
         return data_df
