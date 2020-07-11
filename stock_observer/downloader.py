@@ -1,9 +1,9 @@
 import yfinance as yf
 from pathlib import Path
 from utils import save_csv
-from pandas import DataFrame, to_datetime
 from log_setup import get_logger
 from configparser import ConfigParser
+from pandas import DataFrame, to_datetime
 from stock_observer.database.database_communication import MySQL_Connection
 
 logger = get_logger(__name__)

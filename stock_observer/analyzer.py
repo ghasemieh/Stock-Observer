@@ -1,9 +1,8 @@
 from pathlib import Path
 from utils import save_csv
-from pandas import DataFrame, to_datetime
+from pandas import DataFrame
 from log_setup import get_logger
 from configparser import ConfigParser
-from statistics import stdev
 
 logger = get_logger(__name__)
 
