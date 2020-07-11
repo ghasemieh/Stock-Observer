@@ -1,7 +1,8 @@
 import sys
 import argparse
 import configuration
-from stock_observer.analyzer import Analyzer
+from stock_observer.transformer import Transformer
+from stock_observer.database.database_insertion import DB_Insertion
 from stock_observer.notifier import Notifier
 from utils import read_csv
 from typing import List
@@ -23,7 +24,6 @@ class Stock_Observer_Pipeline:
         self.ticker_list_path = Path(config['Data_Sources']['tickers list csv'])
 
     def stock_observer_pipeline(self, arguments: List[str]) -> None:
-        global data_df
         logger.info("+----------------------------------+")
         logger.info("| Stock observer pipeline started. |")
         logger.info("+----------------------------------+")
@@ -33,7 +33,9 @@ class Stock_Observer_Pipeline:
         parser: ArgumentParser = argparse.ArgumentParser(description=__doc__)
 
         parser.add_argument("-D", "--download", help="download raw data files", action="store_true")
-        parser.add_argument("-A", "--analyze", help="download raw data files", action="store_true")
+        parser.add_argument("-S", "--stage_db", help="download raw data files", action="store_true")
+        parser.add_argument("-T", "--transform", help="download raw data files", action="store_true")
+        parser.add_argument("-M", "--main_db", help="download raw data files", action="store_true")
         parser.add_argument("-N", "--notify", help="download raw data files", action="store_true")
 
         args: Namespace = parser.parse_args(args=arguments)
@@ -50,14 +52,38 @@ class Stock_Observer_Pipeline:
                     pipeline_report_step.mark_failure(str(e))
                     raise e
 
-            if args.analyze:
-                logger.info("Analyzer started.")
-                pipeline_report_step = self.pipeline_report.create_step("Analyzer")
+            if args.stage_db:
+                logger.info("Database staging started.")
+                pipeline_report_step = self.pipeline_report.create_step("Database Stagger")
+                stage_table_name = self.config['MySQL']['stage table name']
+                try:
+                    stage_db = DB_Insertion(self.config)
+                    stage_db.insertion(data_df=data_df, table_name=stage_table_name)
+                except BaseException as e:
+                    pipeline_report_step.mark_failure(str(e))
+                    raise e
+
+            if args.transform:
+                logger.info("Transformation started.")
+                pipeline_report_step = self.pipeline_report.create_step("Transformation")
                 try:
                     import pandas as pd
                     data_df = pd.read_csv('data/downloaded/equity_price.csv')
-                    analyzer = Analyzer(self.config)
-                    data_df_with_ind = analyzer.analysis(data_df=data_df)
+                    transformation = Transformer(self.config)
+                    processed_data_df = transformation.transform(data_df=data_df)
+                except BaseException as e:
+                    pipeline_report_step.mark_failure(str(e))
+                    raise e
+
+            if args.main_db:
+                logger.info("Main database insertion started.")
+                pipeline_report_step = self.pipeline_report.create_step("Main DB Insertion")
+                main_table_name = self.config['MySQL']['main table name']
+                try:
+                    # import pandas as pd
+                    # processed_data_df = pd.read_csv('data/processed/processed_equity_price.csv')
+                    main_db = DB_Insertion(self.config)
+                    main_db.insertion(data_df=processed_data_df, table_name=main_table_name)
                 except BaseException as e:
                     pipeline_report_step.mark_failure(str(e))
                     raise e
