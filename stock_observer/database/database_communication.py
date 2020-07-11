@@ -2,7 +2,9 @@
 # importing 'mysql.connector' as mysql for convenient
 from configparser import ConfigParser
 import mysql.connector as mysql
-from pandas import DataFrame
+from pandas import DataFrame, read_sql
+from sqlalchemy import create_engine
+
 from log_setup import get_logger
 
 logger = get_logger(__name__)
@@ -16,6 +18,7 @@ class MySQL_Connection:
         self.username = config['MySQL']['username']
         self.password = config['MySQL']['password']
         self.database = config['MySQL']['database']
+        self.main_table_name = config['MySQL']['main table name']
         self.conection = mysql.connect(host=self.server,
                                        user=self.username,
                                        passwd=self.password,
@@ -40,7 +43,7 @@ class MySQL_Connection:
             logger.error("show database error")
             logger.error(e)
 
-    def create_table(self, table_name: str) -> None:
+    def create_stage_table(self, table_name: str) -> None:
         try:
             self.cursor.execute(f"CREATE TABLE {table_name} ("
                                 f"ticker VARCHAR(255), "
@@ -53,7 +56,7 @@ class MySQL_Connection:
                                 f"dividends float,"
                                 f"stock_splits float);")
         except Exception as e:
-            logger.error("create table error")
+            logger.error("create stage table error")
             logger.error(e)
 
     def show_table(self) -> None:
@@ -109,14 +112,25 @@ class MySQL_Connection:
             logger.error("insert many error")
             logger.error(e)
 
-    def select(self, query) -> DataFrame:
+    def insert_df(self, data_df: DataFrame, if_exists='fail'):
+        engine = create_engine(f'mysql+pymysql://{self.username}:{self.password}@{self.server}/{self.database}')
+        db_connection = engine.connect()
         try:
-            # getting records from the table
-            self.cursor.execute(query)
-            # fetching all records from the 'cursor' object
-            records = self.cursor.fetchall()
-            data = DataFrame(records, columns=['ticker', 'date', 'open', 'high', 'low',
-                                               'close', 'volume', 'dividends', 'stock_splits'])
+            data_df.to_sql(self.main_table_name, db_connection, if_exists=if_exists, index=False)
+        except ValueError as vx:
+            logger.error(vx)
+        except Exception as ex:
+            logger.error(ex)
+        else:
+            logger.info("Table %s created successfully." % self.main_table_name);
+        finally:
+            db_connection.close()
+
+    def select(self, query) -> DataFrame:
+        engine = create_engine(f'mysql+pymysql://{self.username}:{self.password}@{self.server}/{self.database}')
+        db_connection = engine.connect()
+        try:
+            data = read_sql(query, db_connection)
             return data
         except Exception as e:
             logger.error("select error")
@@ -136,8 +150,9 @@ class MySQL_Connection:
             logger.error("delete error")
             logger.error(e)
 
-    def update(self, query) -> None:
+    def update(self, table_name: str, data_df:DataFrame) -> None:
         """
+        :param table_name:
         :param query: query = "UPDATE users SET name = 'Kareem' WHERE id = 1"
         :return: None
         """
