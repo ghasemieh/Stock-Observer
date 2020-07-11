@@ -1,10 +1,7 @@
-# Connecting to the database
-# importing 'mysql.connector' as mysql for convenient
 from configparser import ConfigParser
 import mysql.connector as mysql
 from pandas import DataFrame, read_sql
 from sqlalchemy import create_engine
-
 from log_setup import get_logger
 
 logger = get_logger(__name__)
@@ -30,34 +27,6 @@ class MySQL_Connection:
     def __del__(self):
         self.cursor.close()
         self.conection.close()
-
-    def show_db(self):
-        try:
-            self.cursor.execute("SHOW DATABASES")
-            # 'fetchall()' method fetches all the rows from the last executed statement
-            databases = self.cursor.fetchall()  # it returns a list of all databases present
-
-            # printing the list of databases
-            print(databases)
-        except Exception as e:
-            logger.error("show database error")
-            logger.error(e)
-
-    def create_stage_table(self, table_name: str) -> None:
-        try:
-            self.cursor.execute(f"CREATE TABLE {table_name} ("
-                                f"ticker VARCHAR(255), "
-                                f"date date,"
-                                f"open float,"
-                                f"high float,"
-                                f"low float,"
-                                f"close float,"
-                                f"volume float,"
-                                f"dividends float,"
-                                f"stock_splits float);")
-        except Exception as e:
-            logger.error("create stage table error")
-            logger.error(e)
 
     def show_table(self) -> None:
         try:
@@ -122,11 +91,12 @@ class MySQL_Connection:
         except Exception as ex:
             logger.error(ex)
         else:
-            logger.info("Table %s created successfully." % self.main_table_name);
+            logger.info(f"Table {self.main_table_name} created successfully.")
+            logger.info(f"Data insertion into the {self.main_table_name} is done")
         finally:
             db_connection.close()
 
-    def select(self, query) -> DataFrame:
+    def select(self, query: str) -> DataFrame:
         engine = create_engine(f'mysql+pymysql://{self.username}:{self.password}@{self.server}/{self.database}')
         db_connection = engine.connect()
         try:
@@ -135,6 +105,8 @@ class MySQL_Connection:
         except Exception as e:
             logger.error("select error")
             logger.error(e)
+        finally:
+            db_connection.close()
 
     def delete(self, query) -> None:
         """
@@ -148,19 +120,4 @@ class MySQL_Connection:
             self.cursor.commit()
         except Exception as e:
             logger.error("delete error")
-            logger.error(e)
-
-    def update(self, table_name: str, data_df:DataFrame) -> None:
-        """
-        :param table_name:
-        :param query: query = "UPDATE users SET name = 'Kareem' WHERE id = 1"
-        :return: None
-        """
-        try:
-            # executing the query
-            self.cursor.execute(query)
-            # final step to tell the database that we have changed the table data
-            self.cursor.commit()
-        except Exception as e:
-            logger.error("update error")
             logger.error(e)
