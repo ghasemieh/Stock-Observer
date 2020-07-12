@@ -62,7 +62,7 @@ class Transformer:
         data_df[f'{n_days}_days_mean_deviation'] = data_df[f'{n_days}_days_mean_deviation'] \
             .map(lambda x: 0.00001 if x == 0 else x)
         data_df[f'{n_days}_days_CCI'] = (data_df['typical_price'] - data_df[
-            f'{n_days}_days_moving_avg_of_typical_price'])/(0.015 * data_df[f'{n_days}_days_mean_deviation'])
+            f'{n_days}_days_moving_avg_of_typical_price']) / (0.015 * data_df[f'{n_days}_days_mean_deviation'])
 
         data_df.drop(columns=['typical_price', 'tp-mv',
                               f'{n_days}_days_moving_avg_of_typical_price',

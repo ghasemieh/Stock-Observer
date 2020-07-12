@@ -69,11 +69,12 @@ class MySQL_Connection:
             logger.error(f"insert many error: {e}")
             raise e
 
-    def insert_df(self, data_df: DataFrame, table_name: str, if_exists='fail'):
+    def insert_df(self, data_df: DataFrame, table_name: str, primary_key: str, if_exists: str = 'fail'):
         engine = create_engine(f'mysql+pymysql://{self.username}:{self.password}@{self.server}/{self.database}')
         db_connection = engine.connect()
         try:
-            data_df.to_sql(table_name, db_connection, if_exists=if_exists, index=False)
+            data_df.to_sql(name=table_name, con=db_connection, if_exists=if_exists, index=False,
+                           index_label=primary_key)
         except ValueError as vx:
             logger.error(vx)
             raise vx
