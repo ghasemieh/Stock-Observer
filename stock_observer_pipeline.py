@@ -1,18 +1,19 @@
 import sys
 import argparse
+import pandas as pd
 import configuration
-from stock_observer.transformer import Transformer
-from stock_observer.database.database_insertion import DB_Insertion
-from stock_observer.notifier import Notifier
-from utils import read_csv
 from typing import List
 from pathlib import Path
+from utils import read_csv
 from argparse import Namespace
 from log_setup import get_logger
 from argparse import ArgumentParser
 from configuration import ConfigParser
 from pipeline_report import PipelineReport
+from stock_observer.notifier import Notifier
 from stock_observer.downloader import Downloader
+from stock_observer.transformer import Transformer
+from stock_observer.database.database_insertion import DB_Insertion
 
 logger = get_logger(__name__)
 
@@ -22,6 +23,8 @@ class Stock_Observer_Pipeline:
         self.pipeline_report = PipelineReport()
         self.config = config
         self.ticker_list_path = Path(config['Data_Sources']['tickers list csv'])
+        self.stage_table_name = self.config['MySQL']['stage table name']
+        self.main_table_name = self.config['MySQL']['main table name']
 
     def stock_observer_pipeline(self, arguments: List[str]) -> None:
         logger.info("+----------------------------------+")
@@ -55,10 +58,9 @@ class Stock_Observer_Pipeline:
             if args.stage_db:
                 logger.info("Database staging started.")
                 pipeline_report_step = self.pipeline_report.create_step("Database Stagger")
-                stage_table_name = self.config['MySQL']['stage table name']
                 try:
                     stage_db = DB_Insertion(self.config)
-                    stage_db.insertion(data_df=data_df, table_name=stage_table_name)
+                    stage_db.insertion(data_df=data_df, table_name=self.stage_table_name, table_type='stage')
                 except BaseException as e:
                     pipeline_report_step.mark_failure(str(e))
                     raise e
@@ -67,10 +69,9 @@ class Stock_Observer_Pipeline:
                 logger.info("Transformation started.")
                 pipeline_report_step = self.pipeline_report.create_step("Transformation")
                 try:
-                    import pandas as pd
-                    data_df = pd.read_csv('data/downloaded/equity_price.csv')
+                    # data_df = pd.read_csv('data/downloaded/equity_price.csv')
                     transformation = Transformer(self.config)
-                    processed_data_df = transformation.transform(data_df=data_df)
+                    processed_data_df = transformation.transform(data=data_df)
                 except BaseException as e:
                     pipeline_report_step.mark_failure(str(e))
                     raise e
@@ -78,12 +79,11 @@ class Stock_Observer_Pipeline:
             if args.main_db:
                 logger.info("Main database insertion started.")
                 pipeline_report_step = self.pipeline_report.create_step("Main DB Insertion")
-                main_table_name = self.config['MySQL']['main table name']
                 try:
-                    # import pandas as pd
-                    # processed_data_df = pd.read_csv('data/processed/processed_equity_price.csv')
+                    derivative_features = list(processed_data_df.columns)[8:]
                     main_db = DB_Insertion(self.config)
-                    main_db.insertion(data_df=processed_data_df, table_name=main_table_name)
+                    main_db.insertion(data_df=processed_data_df, table_name=self.main_table_name,
+                                      table_type='main', derivative_features=derivative_features)
                 except BaseException as e:
                     pipeline_report_step.mark_failure(str(e))
                     raise e

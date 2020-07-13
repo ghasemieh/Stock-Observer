@@ -3,6 +3,8 @@ from utils import save_csv
 from pandas import DataFrame
 from log_setup import get_logger
 from configparser import ConfigParser
+from datetime import datetime, timedelta
+from stock_observer.database.database_communication import MySQL_Connection
 
 logger = get_logger(__name__)
 
@@ -11,15 +13,38 @@ class Transformer:
     def __init__(self, config: ConfigParser):
         self.config = config
         self.path = Path(config['Data_Sources']['processed equity price csv'])
+        self.stage_table_name = self.config['MySQL']['stage table name']
+        self.moving_avg_period_1 = int(self.config['Indicator']['moving average 1st period'])
+        self.moving_avg_period_2 = int(self.config['Indicator']['moving average 2nd period'])
+        self.cci_period = int(self.config['Indicator']['cci period'])
+        self.atr_period = int(self.config['Indicator']['atr period'])
+        self.bollinger_bands_period = int(self.config['Indicator']['bollinger bands period'])
 
-    def transform(self, data_df: DataFrame) -> DataFrame:
-        data_df = self.add_moving_avg(data_df=data_df, n_days=5)
-        data_df = self.add_moving_avg(data_df=data_df, n_days=20)
-        data_df = self.add_cci(data_df=data_df, n_days=30)
-        data_df = self.add_atr(data_df=data_df, n_days=20)
-        data_df = self.add_bollinger_bands(data_df=data_df, n_days=20)
+    def transform(self, data: DataFrame) -> DataFrame:
+        if data.empty:
+            logger.warning("Transformation received empty data frame")
+            return DataFrame()
+        data_df = self.data_load(data, self.stage_table_name, day_shift=30)
+
+        data_df = self.add_moving_avg(data_df=data_df, n_days=self.moving_avg_period_1)
+        data_df = self.add_moving_avg(data_df=data_df, n_days=self.moving_avg_period_2)
+        data_df = self.add_cci(data_df=data_df, n_days=self.cci_period)
+        data_df = self.add_atr(data_df=data_df, n_days=self.atr_period)
+        data_df = self.add_bollinger_bands(data_df=data_df, n_days=self.bollinger_bands_period)
+
+        # data_df = data_df[data_df['date'] >= datetime.strptime(min(data.date), '%Y-%m-%d').date()]
+        data_df = data_df[data_df['date'] >= min(data.date)]
         data_df = data_df.round(4)
         save_csv(data_df, self.path)
+        return data_df
+
+    def data_load(self, data: DataFrame, stage_table_name: str, day_shift: int) -> DataFrame:
+        logger.info("Data loading from staging database")
+        # least_date = datetime.strptime(min(data.date), '%Y-%m-%d').date()
+        least_date = min(data.date)
+        starting_date = least_date - timedelta(days=(day_shift+3))
+        mysql = MySQL_Connection(config=self.config)
+        data_df = mysql.select(f"SELECT * FROM {stage_table_name} WHERE date > '{starting_date}';")
         return data_df
 
     @staticmethod
@@ -62,7 +87,7 @@ class Transformer:
         data_df[f'{n_days}_days_mean_deviation'] = data_df[f'{n_days}_days_mean_deviation'] \
             .map(lambda x: 0.00001 if x == 0 else x)
         data_df[f'{n_days}_days_CCI'] = (data_df['typical_price'] - data_df[
-            f'{n_days}_days_moving_avg_of_typical_price'])/(0.015 * data_df[f'{n_days}_days_mean_deviation'])
+            f'{n_days}_days_moving_avg_of_typical_price']) / (0.015 * data_df[f'{n_days}_days_mean_deviation'])
 
         data_df.drop(columns=['typical_price', 'tp-mv',
                               f'{n_days}_days_moving_avg_of_typical_price',
