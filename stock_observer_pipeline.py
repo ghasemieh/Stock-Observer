@@ -69,7 +69,6 @@ class Stock_Observer_Pipeline:
                 logger.info("Transformation started.")
                 pipeline_report_step = self.pipeline_report.create_step("Transformation")
                 try:
-                    # data_df = pd.read_csv('data/downloaded/equity_price.csv')
                     transformation = Transformer(self.config)
                     processed_data_df = transformation.transform(data=data_df)
                 except BaseException as e:

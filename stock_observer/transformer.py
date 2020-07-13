@@ -3,7 +3,7 @@ from utils import save_csv
 from pandas import DataFrame
 from log_setup import get_logger
 from configparser import ConfigParser
-from datetime import datetime, timedelta
+from datetime import timedelta
 from stock_observer.database.database_communication import MySQL_Connection
 
 logger = get_logger(__name__)
@@ -24,6 +24,7 @@ class Transformer:
         if data.empty:
             logger.warning("Transformation received empty data frame")
             return DataFrame()
+
         data_df = self.data_load(data, self.stage_table_name, day_shift=30)
 
         data_df = self.add_moving_avg(data_df=data_df, n_days=self.moving_avg_period_1)
@@ -32,7 +33,6 @@ class Transformer:
         data_df = self.add_atr(data_df=data_df, n_days=self.atr_period)
         data_df = self.add_bollinger_bands(data_df=data_df, n_days=self.bollinger_bands_period)
 
-        # data_df = data_df[data_df['date'] >= datetime.strptime(min(data.date), '%Y-%m-%d').date()]
         data_df = data_df[data_df['date'] >= min(data.date)]
         data_df = data_df.round(4)
         save_csv(data_df, self.path)
@@ -40,7 +40,6 @@ class Transformer:
 
     def data_load(self, data: DataFrame, stage_table_name: str, day_shift: int) -> DataFrame:
         logger.info("Data loading from staging database")
-        # least_date = datetime.strptime(min(data.date), '%Y-%m-%d').date()
         least_date = min(data.date)
         starting_date = least_date - timedelta(days=(day_shift+3))
         mysql = MySQL_Connection(config=self.config)
