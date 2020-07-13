@@ -69,7 +69,7 @@ class Stock_Observer_Pipeline:
                 logger.info("Transformation started.")
                 pipeline_report_step = self.pipeline_report.create_step("Transformation")
                 try:
-                    data_df = pd.read_csv('data/downloaded/equity_price.csv')
+                    # data_df = pd.read_csv('data/downloaded/equity_price.csv')
                     transformation = Transformer(self.config)
                     processed_data_df = transformation.transform(data=data_df)
                 except BaseException as e:
@@ -80,8 +80,7 @@ class Stock_Observer_Pipeline:
                 logger.info("Main database insertion started.")
                 pipeline_report_step = self.pipeline_report.create_step("Main DB Insertion")
                 try:
-                    processed_data_df = pd.read_csv('data/processed/processed_equity_price.csv') # TODO remove
-                    derivative_features = list(processed_data_df.columns)[10:]
+                    derivative_features = list(processed_data_df.columns)[8:]
                     main_db = DB_Insertion(self.config)
                     main_db.insertion(data_df=processed_data_df, table_name=self.main_table_name,
                                       table_type='main', derivative_features=derivative_features)

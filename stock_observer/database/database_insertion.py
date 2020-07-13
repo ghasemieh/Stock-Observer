@@ -11,11 +11,14 @@ class DB_Insertion:
         self.config = config
 
     def insertion(self, data_df: DataFrame, table_name: str, table_type: str, derivative_features=None) -> None:
-        mysql = MySQL_Connection(config=self.config)
-        test = mysql.select(f"SELECT * FROM {table_name} LIMIT 3;")
-        if test is None:
-            mysql.create_table(table_name=table_name, table_type=table_type, derivative_features=derivative_features)
-            mysql.insert_df(data_df=data_df, table_name=table_name, primary_key='id', if_exists='append')
+        if not data_df.empty:
+            mysql = MySQL_Connection(config=self.config)
+            test = mysql.select(f"SELECT * FROM {table_name} LIMIT 3;")
+            if test is None:
+                mysql.create_table(table_name=table_name, table_type=table_type, derivative_features=derivative_features)
+                mysql.insert_df(data_df=data_df, table_name=table_name, primary_key='id', if_exists='append')
+            else:
+                logger.info(f"Update {table_name} table in the database")
+                mysql.insert_df(data_df=data_df, table_name=table_name, primary_key='id', if_exists='append')
         else:
-            logger.info(f"Update {table_name} table in the database")
-            mysql.insert_df(data_df=data_df, table_name=table_name, primary_key='id', if_exists='append')
+            logger.warning("Database insertion received empty data frame")

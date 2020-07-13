@@ -20,7 +20,6 @@ class MySQL_Connection:
                                         passwd=self.password,
                                         database=self.database)
         # creating an instance of 'cursor' class which is used to execute the 'SQL' statements in 'Python'
-
         self.cursor = self.connection.cursor()
 
     def __del__(self):
@@ -39,9 +38,7 @@ class MySQL_Connection:
                         high double, 
                         low double, 
                         close double, 
-                        volume bigint(20), 
-                        dividends double, 
-                        stock_splits bigint(20));"""
+                        volume bigint(20));"""
         elif table_type == 'main':
             cols = " double, ".join([str(i) for i in derivative_features]) + " double"
             query = f"""CREATE TABLE {table_name} (
@@ -53,8 +50,6 @@ class MySQL_Connection:
                         low double, 
                         close double, 
                         volume bigint(20), 
-                        dividends double, 
-                        stock_splits bigint(20), 
                         {cols});"""
         self.cursor.execute(query)
 
@@ -104,12 +99,11 @@ class MySQL_Connection:
         engine = create_engine(f'mysql+pymysql://{self.username}:{self.password}@{self.server}/{self.database}')
         db_connection = engine.connect()
         try:
-            query = f"""SELECT `COLUMN_NAME` 
-                                FROM `INFORMATION_SCHEMA`.`COLUMNS` 
-                                WHERE `TABLE_SCHEMA`='{self.database}'
-                                AND `TABLE_NAME`='{table_name}';"""
-            col = self.select(query)  # TODO I want to check the column before insert into the data base
-
+            # query = f"""SELECT `COLUMN_NAME`
+            #                     FROM `INFORMATION_SCHEMA`.`COLUMNS`
+            #                     WHERE `TABLE_SCHEMA`='{self.database}'
+            #                     AND `TABLE_NAME`='{table_name}';"""
+            # col = self.select(query)  # TODO I want to check the column before insert into the data base
             data_df.to_sql(name=table_name, con=db_connection, if_exists=if_exists, index=False,
                            index_label=primary_key)
         except ValueError as vx:
