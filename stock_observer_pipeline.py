@@ -1,6 +1,5 @@
 import sys
 import argparse
-import pandas as pd
 import configuration
 from typing import List
 from pathlib import Path
