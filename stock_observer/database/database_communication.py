@@ -1,8 +1,8 @@
-from configparser import ConfigParser
 import mysql.connector as mysql
-from pandas import DataFrame, read_sql
-from sqlalchemy import create_engine
 from log_setup import get_logger
+from configparser import ConfigParser
+from sqlalchemy import create_engine
+from pandas import DataFrame, read_sql
 
 logger = get_logger(__name__)
 
@@ -26,6 +26,37 @@ class MySQL_Connection:
     def __del__(self):
         self.cursor.close()
         self.connection.close()
+
+    def create_table(self, table_name: str, table_type: str, derivative_features=None):
+        global query
+        logger.info(f"Start creating {table_type} table with {table_name} name in the database")
+        if table_type == 'stage':
+            query = f"""CREATE TABLE {table_name} (
+                        id VARCHAR(20) NOT NULL PRIMARY KEY, 
+                        ticker VARCHAR(10) NOT NULL, 
+                        date date NOT NULL, 
+                        open double, 
+                        high double, 
+                        low double, 
+                        close double, 
+                        volume bigint(20), 
+                        dividends double, 
+                        stock_splits bigint(20));"""
+        elif table_type == 'main':
+            cols = " double, ".join([str(i) for i in derivative_features]) + " double"
+            query = f"""CREATE TABLE {table_name} (
+                        id VARCHAR(20) NOT NULL PRIMARY KEY, 
+                        ticker VARCHAR(10) NOT NULL, 
+                        date date NOT NULL, 
+                        open double, 
+                        high double, 
+                        low double, 
+                        close double, 
+                        volume bigint(20), 
+                        dividends double, 
+                        stock_splits bigint(20), 
+                        {cols});"""
+        self.cursor.execute(query)
 
     def insert(self, table_name, data_df: DataFrame) -> None:
         """
@@ -73,6 +104,12 @@ class MySQL_Connection:
         engine = create_engine(f'mysql+pymysql://{self.username}:{self.password}@{self.server}/{self.database}')
         db_connection = engine.connect()
         try:
+            query = f"""SELECT `COLUMN_NAME` 
+                                FROM `INFORMATION_SCHEMA`.`COLUMNS` 
+                                WHERE `TABLE_SCHEMA`='{self.database}'
+                                AND `TABLE_NAME`='{table_name}';"""
+            col = self.select(query)  # TODO I want to check the column before insert into the data base
+
             data_df.to_sql(name=table_name, con=db_connection, if_exists=if_exists, index=False,
                            index_label=primary_key)
         except ValueError as vx:
@@ -93,7 +130,7 @@ class MySQL_Connection:
             data = read_sql(query, db_connection)
             return data
         except Exception as e:
-            logger.error(f"select error: {e}")
+            logger.warning(f"select error: {e}")
         finally:
             db_connection.close()
 
