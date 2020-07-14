@@ -23,7 +23,8 @@ class Downloader:
             data_df = self.bulk_downloader(ticker_list=ticker_list)
         else:
             data_df = self.updates_downloader(ticker_list=ticker_list)
-        data_df = data_df[['id', 'ticker', 'date', 'open', 'high', 'low', 'close', 'volume']]
+        if not data_df.empty:
+            data_df = data_df[['id', 'ticker', 'date', 'open', 'high', 'low', 'close', 'volume']]
         return data_df
 
     def bulk_downloader(self, ticker_list) -> DataFrame:
