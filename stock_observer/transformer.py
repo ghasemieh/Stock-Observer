@@ -25,8 +25,8 @@ class Transformer:
             logger.warning("Transformation received empty data frame")
             return DataFrame()
 
-        # data_df = self.data_load(data, self.stage_table_name, day_shift=30)
-        data_df = data
+        data_df = self.data_load(data, self.stage_table_name, day_shift=30)
+        # data_df = data
 
         data_df = self.add_moving_avg(data_df=data_df, n_days=self.moving_avg_period_1)
         data_df = self.add_moving_avg(data_df=data_df, n_days=self.moving_avg_period_2)
