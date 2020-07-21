@@ -3,6 +3,8 @@ import argparse
 import configuration
 from typing import List
 from pathlib import Path
+
+from stock_observer.analyzer import Analyzer
 from utils import read_csv
 from argparse import Namespace
 from log_setup import get_logger
@@ -76,7 +78,7 @@ class Stock_Observer_Pipeline:
                     raise e
 
             if args.main_db:
-                logger.info("Main database insertion started.")
+                logger.info("-------- Main database insertion started. -------- ")
                 pipeline_report_step = self.pipeline_report.create_step("Main DB Insertion")
                 try:
                     derivative_features = list(processed_data_df.columns)[8:]
@@ -90,19 +92,19 @@ class Stock_Observer_Pipeline:
             if args.analyzer:
                 logger.info("-------- Analyzer started. --------")
                 pipeline_report_step = self.pipeline_report.create_step("Analyzer")
-                # try:
-                #     analyzer = Analyzer(self.config)
-                #     analyzer.analysis(data_df=processed_data_df)
-                # except BaseException as e:
-                #     pipeline_report_step.mark_failure(str(e))
-                #     raise e
+                try:
+                    analyzer = Analyzer(self.config)
+                    result = analyzer.analysis()
+                except BaseException as e:
+                    pipeline_report_step.mark_failure(str(e))
+                    raise e
 
             if args.notify:
-                logger.info("Notifier started.")
+                logger.info("-------- Notifier started. -------- ")
                 pipeline_report_step = self.pipeline_report.create_step("Notifier")
                 try:
                     notifier = Notifier(self.config)
-                    notifier.notifier()
+                    notifier.notifier(result_message=result)
                 except BaseException as e:
                     pipeline_report_step.mark_failure(str(e))
                     raise e

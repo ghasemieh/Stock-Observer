@@ -19,7 +19,7 @@ class Notifier:
         self.equity_price = config['Data_Sources']['equity price csv']
         self.processed_equity_price = config['Data_Sources']['processed equity price csv']
 
-    def notifier(self) -> None:
+    def notifier(self, result_message: str) -> None:
         try:
             credential = open("email_credential.txt", "r")
 
@@ -34,16 +34,18 @@ class Notifier:
             message['To'] = ', '.join(receiver_email)
 
             # Create the plain-text and HTML version of your message
-            text = """\
+            text = f"""\
             Hi,
             Check the daily equity price in the attachment.
+            {result_message}
             """
 
-            html = """\
+            html = f"""\
             <html>
               <body>
                 <p>Hi,<br>
                    Check the daily equity price in the attachment.<br>
+                   {result_message}<br>
                 </p>
               </body>
             </html>
