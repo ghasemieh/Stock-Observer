@@ -82,11 +82,14 @@ class Downloader:
                     logger.warning(f"{ticker}: No data found for this date range, symbol may be delisted")
             except Exception as e:
                 logger.error(e)
-        data_df = self.add_primary_key(data_df)
-        data_df = data_df[data_df['date'] > max_date.iloc[0][0]]
-        logger.info(f"Data size is {data_df.shape}")
-        save_csv(data_df, self.path)
-        return data_df
+        if not data_df.empty:
+            data_df = self.add_primary_key(data_df)
+            data_df = data_df[data_df['date'] > max_date.iloc[0][0]]
+            logger.info(f"Data size is {data_df.shape}")
+            save_csv(data_df, self.path)
+            return data_df
+        else:
+            return DataFrame()
 
     @staticmethod
     def add_primary_key(data: DataFrame) -> DataFrame:

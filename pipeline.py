@@ -45,7 +45,7 @@ class Stock_Observer_Pipeline:
 
         try:
             if args.download:
-                logger.info("Downloader started.")
+                logger.info("-------- Downloader started. --------")
                 pipeline_report_step = self.pipeline_report.create_step("Downloader")
                 try:
                     download = Downloader(self.config)
@@ -56,7 +56,7 @@ class Stock_Observer_Pipeline:
                     raise e
 
             if args.stage_db:
-                logger.info("Database staging started.")
+                logger.info("-------- Database staging started. --------")
                 pipeline_report_step = self.pipeline_report.create_step("Database Stagger")
                 try:
                     stage_db = DB_Insertion(self.config)
@@ -66,21 +66,11 @@ class Stock_Observer_Pipeline:
                     raise e
 
             if args.transform:
-                logger.info("Transformation started.")
+                logger.info("-------- Transformation started. --------")
                 pipeline_report_step = self.pipeline_report.create_step("Transformation")
                 try:
                     transformation = Transformer(self.config)
                     processed_data_df = transformation.transform(data=data_df)
-                except BaseException as e:
-                    pipeline_report_step.mark_failure(str(e))
-                    raise e
-
-            if args.analyzer:
-                logger.info("Analyzer started.")
-                pipeline_report_step = self.pipeline_report.create_step("Analyzer")
-                try:
-                    analyzer = Analyzer(self.config)
-                    analyzer.analysis(data_df=processed_data_df)
                 except BaseException as e:
                     pipeline_report_step.mark_failure(str(e))
                     raise e
@@ -96,6 +86,16 @@ class Stock_Observer_Pipeline:
                 except BaseException as e:
                     pipeline_report_step.mark_failure(str(e))
                     raise e
+
+            if args.analyzer:
+                logger.info("-------- Analyzer started. --------")
+                pipeline_report_step = self.pipeline_report.create_step("Analyzer")
+                # try:
+                #     analyzer = Analyzer(self.config)
+                #     analyzer.analysis(data_df=processed_data_df)
+                # except BaseException as e:
+                #     pipeline_report_step.mark_failure(str(e))
+                #     raise e
 
             if args.notify:
                 logger.info("Notifier started.")
