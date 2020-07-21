@@ -38,6 +38,7 @@ class Stock_Observer_Pipeline:
         parser.add_argument("-S", "--stage_db", help="download raw data files", action="store_true")
         parser.add_argument("-T", "--transform", help="download raw data files", action="store_true")
         parser.add_argument("-M", "--main_db", help="download raw data files", action="store_true")
+        parser.add_argument("-A", "--analyzer", help="download raw data files", action="store_true")
         parser.add_argument("-N", "--notify", help="download raw data files", action="store_true")
 
         args: Namespace = parser.parse_args(args=arguments)
@@ -70,6 +71,16 @@ class Stock_Observer_Pipeline:
                 try:
                     transformation = Transformer(self.config)
                     processed_data_df = transformation.transform(data=data_df)
+                except BaseException as e:
+                    pipeline_report_step.mark_failure(str(e))
+                    raise e
+
+            if args.analyzer:
+                logger.info("Analyzer started.")
+                pipeline_report_step = self.pipeline_report.create_step("Analyzer")
+                try:
+                    analyzer = Analyzer(self.config)
+                    analyzer.analysis(data_df=processed_data_df)
                 except BaseException as e:
                     pipeline_report_step.mark_failure(str(e))
                     raise e
