@@ -30,6 +30,7 @@ class Decision_Maker:
     def alert_message_generator(result_df: DataFrame) -> str:
         logger.info("Alert message generator started")
         message = ""
+
         return message
 
 

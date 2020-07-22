@@ -31,6 +31,7 @@ class Stock_Observer_Pipeline:
         self.data_download_folder_path = Path(config['General']['data download directory'])
         self.data_transform_folder_path = Path(config['General']['data transform directory'])
         self.data_analysis_folder_path = Path(config['General']['data analysis directory'])
+        self.decisions_folder_path = Path(config['General']['decisions directory'])
 
     def stock_observer_pipeline(self, arguments: List[str]) -> None:
         logger.info("+----------------------------------+")
@@ -55,6 +56,7 @@ class Stock_Observer_Pipeline:
         create_directory(self.data_download_folder_path)
         create_directory(self.data_transform_folder_path)
         create_directory(self.data_analysis_folder_path)
+        create_directory(self.decisions_folder_path)
 
         try:
             if args.download:
