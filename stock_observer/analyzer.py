@@ -20,17 +20,16 @@ class Analyzer:
 
     def analysis(self) -> str:
         data_df = self.data_load(main_table_name=self.main_table_name, day_shift=30)
-        # BB_result_df, signal_1 = self.BB_check(data_df=data_df)
-        MA_result_df, signal_2 = self.MA_cross_angle_diff(data_df=data_df)
-        ATR_slope_result_df, signal_3 = self.ATR_slope_change(data_df=data_df)
-        ATR_range_result_df, signal_4 = self.ATR_range(data_df=data_df)
-        CCI_result_df, signal_5 = self.CCI_change(data_df=data_df)
+        # BB_result_df = self.BB_check(data_df=data_df)
+        # MA_result_df = self.MA_cross_angle_diff(data_df=data_df)
+        ATR_slope_result_df = self.ATR_slope_change(data_df=data_df)
+        ATR_range_result_df = self.ATR_range(data_df=data_df)
+        CCI_result_df = self.CCI_change(data_df=data_df)
         # result_df = self.result_integrator(BB=BB_result_df, MA=MA_result_df, ATR_S=ATR_slope_result_df,
         #                                    ATR_R=ATR_range_result_df, CCI=CCI_result_df)
         # self.result_logger(table_name=self.result_table_name, result_df=result_df)
-        # result_message = self.alert_message_generator(result_df=result_df, s1=signal_1, s2=signal_2, s3=signal_3,
-        #                                               s4=signal_4, s5=signal_5)
-        return result_message
+        # result_message = self.alert_message_generator(result_df=result_df)
+        # return result_message
 
     def data_load(self, main_table_name: str, day_shift: int) -> DataFrame:
         logger.info("Data loading from main database")
@@ -42,7 +41,6 @@ class Analyzer:
     @staticmethod
     def BB_check(data_df: DataFrame):
         logger.info("Bollinger band check")
-        signal: int = 0
         BB_df = data_df[data_df.date == date.today()][['id', 'ticker', 'date', 'open', 'close', '20_BB_U', '20_BB_L']]
         BB_df.reset_index(drop=True, inplace=True)
         result_L = []
@@ -53,7 +51,6 @@ class Analyzer:
 
             if max_price > tup._5:
                 s_u = 1
-                signal = 1
                 logger.warning(f"{tup.ticker} price broke the BB upper band")
             else:
                 s_u = 0
@@ -61,66 +58,111 @@ class Analyzer:
 
             if min_price < tup._6:
                 s_l = 1
-                signal = 1
                 logger.warning(f"{tup.ticker} price broke the BB lower band")
             else:
                 s_l = 0
             result_L.append(s_l)
 
-        result_L_df = DataFrame(result_L, columns=['BB_L_flag'])
-        result_U_df = DataFrame(result_U, columns=['BB_U_flag'])
+        result_L_df = DataFrame(result_L, columns=['BB_L_signal'])
+        result_U_df = DataFrame(result_U, columns=['BB_U_signal'])
         result_df = BB_df.join(result_U_df.join(result_L_df))
-        return result_df, signal
+        return result_df
 
     @staticmethod
-    def MA_cross_angle_diff(data_df: DataFrame) -> int:
+    def MA_cross_angle_diff(data_df: DataFrame) -> DataFrame:
         logger.info("MA-5 and MA-20 cross point angle check")
-        signal = 0
-        MA_df = data_df[data_df.date >= (date.today()-timedelta(days=1))][['id', 'ticker', 'date', '5_MA', '20_MA',
-                                                                           '5_MA_alpha', '20_MA_alpha']]
+        MA_df = data_df[data_df.date >= (date.today() - timedelta(days=3))][['id', 'ticker', 'date', '5_MA', '20_MA',
+                                                                             '5_MA_alpha', '20_MA_alpha']]
         MA_df.reset_index(drop=True, inplace=True)
         ticker_list = MA_df.ticker.unique()
-        processed_df = pd.DataFrame()
+        result = []
         for ticker in ticker_list:
             temp_df = MA_df[MA_df.ticker == ticker].copy()
             temp_df.sort_values(by=['date'], inplace=True)
             temp_df.reset_index(drop=True, inplace=True)
 
-            MA_5_y = temp_df.iloc[0]['5_MA']
-            MA_20_y = temp_df.iloc[0]['20_MA']
+            if len(temp_df) == 2:
+                MA_5_y = temp_df.iloc[0]['5_MA']
+                MA_20_y = temp_df.iloc[0]['20_MA']
 
-            MA_5_t = temp_df.iloc[1]['5_MA']
-            MA_20_t = temp_df.iloc[1]['20_MA']
-            MA_5_alpha_t = temp_df.iloc[1]['5_MA_alpha']
-            MA_20_alpha_t = temp_df.iloc[1]['20_MA_alpha']
+                MA_5_t = temp_df.iloc[1]['5_MA']
+                MA_20_t = temp_df.iloc[1]['20_MA']
+                MA_5_alpha_t = temp_df.iloc[1]['5_MA_alpha']
+                MA_20_alpha_t = temp_df.iloc[1]['20_MA_alpha']
 
-            if ((MA_5_y < MA_20_y) and (MA_5_t > MA_20_t)) or ((MA_5_y > MA_20_y) and (MA_5_t < MA_20_t)):
-                angle_diff = abs(MA_5_alpha_t-MA_20_alpha_t)
-                if angle_diff <= 10:
+                if ((MA_5_y < MA_20_y) and (MA_5_t > MA_20_t)) or ((MA_5_y > MA_20_y) and (MA_5_t < MA_20_t)):
+                    angle_diff = abs(MA_5_alpha_t - MA_20_alpha_t)
+                    if angle_diff <= 10:
+                        signal = 0
+                    elif 10 < angle_diff < 45:
+                        signal = 1
+                        logger.warning(f"Signal {signal}: {ticker} MA_5 and MA_20 angle difference is {angle_diff}")
+                    elif 45 <= angle_diff < 60:
+                        signal = 2
+                        logger.warning(f"Signal {signal}: {ticker} MA_5 and MA_20 angle difference is {angle_diff}")
+                    elif 60 <= angle_diff < 75:
+                        signal = 3
+                        logger.warning(f"Signal {signal}: {ticker} MA_5 and MA_20 angle difference is {angle_diff}")
+                    elif 75 <= angle_diff < 90:
+                        signal = 4
+                        logger.warning(f"Signal {signal}: {ticker} MA_5 and MA_20 angle difference is {angle_diff}")
+                    elif angle_diff >= 90:
+                        signal = 5
+                        logger.warning(f"Signal {signal}: {ticker} MA_5 and MA_20 angle difference is {angle_diff}")
+                else:
                     signal = 0
-                elif 10 < angle_diff < 45:
-                    signal = 1
-                elif 45 <= angle_diff < 60:
-                    signal = 2
-                elif 60 <= angle_diff < 75:
-                    signal = 3
-                elif 75 <= angle_diff < 90:
-                    signal = 4
-                elif angle_diff >= 90:
-                    signal = 5
-
-
-
-
-
-        return signal
+                result.append((ticker, temp_df.iloc[0]['date'], signal))
+            else:
+                logger.warning(f"Ticker {ticker} does't have 2 days data in last 3 days")
+                signal = 0
+                result.append((ticker, temp_df.iloc[0]['date'], signal))
+        result_df = DataFrame(result, columns=['ticker', 'date', 'MA_signal'])
+        return result_df
 
     @staticmethod
-    def ATR_slope_change(data_df: DataFrame) -> int:
+    def ATR_slope_change(data_df: DataFrame) -> DataFrame:
         logger.info("ATR slope change check")
-        signal = 0
+        ATR_S_df = data_df[data_df.date >= (date.today() - timedelta(days=3))][['id', 'ticker', 'date', '20_ATR_alpha']]
+        ATR_S_df.reset_index(drop=True, inplace=True)
+        ticker_list = ATR_S_df.ticker.unique()
+        result = []
+        for ticker in ticker_list:
+            temp_df = ATR_S_df[ATR_S_df.ticker == ticker].copy()
+            temp_df.sort_values(by=['date'], inplace=True)
+            temp_df.reset_index(drop=True, inplace=True)
 
-        return signal
+            if len(temp_df) == 2:
+                ATR_alpha_t = temp_df.iloc[0]['20_ATR_alpha']
+                ATR_alpha_y = temp_df.iloc[1]['20_ATR_alpha']
+                angle_diff = abs(ATR_alpha_t - ATR_alpha_y)
+                if angle_diff <= 30:
+                    signal = 0
+                elif 30 < angle_diff < 45:
+                    signal = 1
+                    logger.warning(f"Signal {signal}: {ticker} ATR slope break is {angle_diff}")
+                elif 45 <= angle_diff < 60:
+                    signal = 2
+                    logger.warning(f"Signal {signal}: {ticker} ATR slope break is {angle_diff}")
+                elif 60 <= angle_diff < 75:
+                    signal = 3
+                    logger.warning(f"Signal {signal}: {ticker} ATR slope break is {angle_diff}")
+                elif 75 <= angle_diff < 90:
+                    signal = 4
+                    logger.warning(f"Signal {signal}: {ticker} ATR slope break is {angle_diff}")
+                elif angle_diff >= 90:
+                    signal = 5
+                    logger.warning(f"Signal {signal}: {ticker} ATR slope break is {angle_diff}")
+
+                result.append((ticker, temp_df.iloc[0]['date'], signal))
+            else:
+                logger.warning(f"Ticker {ticker} does't have 2 days data in last 3 days")
+                signal = 0
+                result.append((ticker, temp_df.iloc[0]['date'], signal))
+
+        result_df = DataFrame(result, columns=['ticker', 'date', 'MA_signal'])
+
+        return result_df
+
 
     @staticmethod
     def ATR_range(data_df: DataFrame) -> int:

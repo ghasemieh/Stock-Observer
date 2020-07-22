@@ -4,7 +4,8 @@ from pandas import DataFrame
 import numpy as np
 from log_setup import get_logger
 from configparser import ConfigParser
-from datetime import timedelta
+from datetime import timedelta, datetime
+from utils import str_to_datetime
 from stock_observer.database.database_communication import MySQL_Connection
 
 logger = get_logger(__name__)
@@ -21,13 +22,12 @@ class Transformer:
         self.atr_period = int(self.config['Indicator']['atr period'])
         self.bollinger_bands_period = int(self.config['Indicator']['bollinger bands period'])
 
-    def transform(self, data: DataFrame) -> DataFrame:
+    def transform(self, data: DataFrame = DataFrame()) -> DataFrame:
         if data.empty:
             logger.warning("Transformation received empty data frame")
             return DataFrame()
 
         data_df = self.data_load(data, self.stage_table_name, day_shift=30)
-        # data_df = data
 
         data_df = self.add_moving_avg(data_df=data_df, n_days=self.moving_avg_period_1)
         data_df = self.add_moving_avg(data_df=data_df, n_days=self.moving_avg_period_2)
@@ -39,14 +39,17 @@ class Transformer:
         data_df = self.add_angle(data_df=data_df, feature='20_ATR')
         data_df = self.add_angle(data_df=data_df, feature='30_CCI')
 
-        data_df = data_df[data_df['date'] >= min(data.date)]
-        data_df = data_df.round(4)
+        data_df = data_df[data_df['date'] >= min(data.date)] #TODO uncomment
+        data_df = data_df.round(3)
         save_csv(data_df, self.path)
         return data_df
 
     def data_load(self, data: DataFrame, stage_table_name: str, day_shift: int) -> DataFrame:
         logger.info("Data loading from staging database")
-        least_date = min(data.date)
+        if data.empty:
+            least_date = str_to_datetime('2000-01-01').date()
+        else:
+            least_date = min(data.date)
         starting_date = least_date - timedelta(days=(day_shift + 3))
         mysql = MySQL_Connection(config=self.config)
         data_df = mysql.select(f"SELECT * FROM {stage_table_name} WHERE date > '{starting_date}';")
@@ -79,7 +82,7 @@ class Transformer:
         data_df['typical_price'] = (data_df['high'] + data_df['close'] + data_df['low']) / 3
 
         # compute moving average on typical price: sum(typical_price)/30
-        data_df = self.add_rolling_ave(data_df=data_df, n_days=n_days, feature='typical_price')
+        data_df = self.add_rolling_ave(data_df=data_df, n_days=n_days, feature='typical_price') # TODO shift 1 day back
         data_df.rename(columns={f'{n_days}_days_rolling_result': f'{n_days}_days_moving_avg_of_typical_price'},
                        inplace=True)
 
@@ -172,6 +175,7 @@ class Transformer:
         slope = data_df.groupby(by='ticker')[feature].rolling(window=5, min_periods=5) \
             .apply(self.slope_cal).reset_index(drop=False)
         slope.rename(columns={feature: f'{feature}_alpha'}, inplace=True)
+        slope = slope.round(0)
         data_df.reset_index(drop=True, inplace=True)
         data_df = data_df.merge(slope, on=['ticker', 'date'], how='inner')
         data_df.sort_values(by=['ticker', 'date'], inplace=True)
