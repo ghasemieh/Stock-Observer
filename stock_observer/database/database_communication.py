@@ -23,7 +23,7 @@ class MySQL_Connection:
         self.cursor = self.connection.cursor()
 
     def __del__(self):
-        self.cursor.close()
+        # self.cursor.close()
         self.connection.close()
 
     def create_table(self, table_name: str, table_type: str, derivative_features=None):
@@ -106,11 +106,19 @@ class MySQL_Connection:
         engine = create_engine(f'mysql+pymysql://{self.username}:{self.password}@{self.server}/{self.database}')
         db_connection = engine.connect()
         try:
-            # query = f"""SELECT `COLUMN_NAME`
-            #                     FROM `INFORMATION_SCHEMA`.`COLUMNS`
-            #                     WHERE `TABLE_SCHEMA`='{self.database}'
-            #                     AND `TABLE_NAME`='{table_name}';"""
-            # col = self.select(query)  # TODO I want to check the column before insert into the data base
+            test = self.select(f"SELECT * FROM {table_name} LIMIT 3;")
+            if test is not None:
+                counter = 0
+                logger.info(f"Deleting old data from data warehouse")
+                key_list = data_df[primary_key]
+                key_len = len(key_list)
+                for key_value in key_list:
+                    counter = +1
+                    self.delete(f"Delete from {table_name} where {primary_key} = '{key_value}';")
+                    if counter % 1000 == 0:
+                        logger.info(f"{counter} of {key_len} is checked")
+
+            logger.info(f"Inserting new data into data warehouse")
             data_df.to_sql(name=table_name, con=db_connection, if_exists=if_exists, index=False,
                            index_label=primary_key)
         except ValueError as vx:
@@ -144,6 +152,6 @@ class MySQL_Connection:
             # executing the query
             self.cursor.execute(query)
             # final step to tell the database that we have changed the table data
-            self.cursor.commit()
+            self.connection.commit()
         except Exception as e:
             logger.error(f"delete error: {e}")

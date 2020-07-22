@@ -81,7 +81,7 @@ class Analyzer:
             temp_df.sort_values(by=['date'], inplace=True, ascending=False)
             temp_df.reset_index(drop=True, inplace=True)
 
-            if len(temp_df) == 2:
+            if len(temp_df) >= 2:
                 MA_5_y = temp_df.iloc[1]['5_MA']
                 MA_20_y = temp_df.iloc[1]['20_MA']
 
@@ -131,7 +131,7 @@ class Analyzer:
             temp_df.sort_values(by=['date'], inplace=True, ascending=False)
             temp_df.reset_index(drop=True, inplace=True)
 
-            if len(temp_df) == 2:
+            if len(temp_df) >= 2:
                 ATR_alpha_t = temp_df.iloc[0]['20_ATR_alpha']
                 ATR_alpha_y = temp_df.iloc[1]['20_ATR_alpha']
                 angle_diff = int(round(abs(ATR_alpha_t - ATR_alpha_y), 0))
@@ -176,7 +176,7 @@ class Analyzer:
             temp_df.sort_values(by=['date'], inplace=True, ascending=False)
             temp_df.reset_index(drop=True, inplace=True)
 
-            if len(temp_df) == 2:
+            if len(temp_df) >= 2:
                 open_t = temp_df.iloc[0]['open']
                 close_t = temp_df.iloc[0]['close']
                 ATR_y = temp_df.iloc[1]['20_ATR']
@@ -262,7 +262,10 @@ class Analyzer:
 
     def result_logger(self, table_name: str, table_type: str, data_df: DataFrame, latest_date: date) -> None:
         if not data_df.empty:
+            logger.info(f"Saving analysis csv file in {self.path}_{latest_date}.csv")
             save_csv(data_df, Path(f"{self.path}_{latest_date}.csv"))
+
+            logger.info(f"Inserting analysis result in database {table_name} table")
             mysql = MySQL_Connection(config=self.config)
             test = mysql.select(f"SELECT * FROM {table_name} LIMIT 3;")
             if test is None:

@@ -1,11 +1,11 @@
+import numpy as np
 from pathlib import Path
 from utils import save_csv
 from pandas import DataFrame
-import numpy as np
+from datetime import timedelta
+from utils import str_to_datetime
 from log_setup import get_logger
 from configparser import ConfigParser
-from datetime import timedelta, datetime
-from utils import str_to_datetime
 from stock_observer.database.database_communication import MySQL_Connection
 
 logger = get_logger(__name__)
@@ -37,10 +37,10 @@ class Transformer:
         data_df = self.add_angle(data_df=data_df, feature='5_MA')
         data_df = self.add_angle(data_df=data_df, feature='20_MA')
         data_df = self.add_angle(data_df=data_df, feature='20_ATR')
-        # data_df = self.add_angle(data_df=data_df, feature='30_CCI')
 
         data_df = data_df[data_df['date'] >= min(data.date)] #TODO uncomment
         data_df = data_df.round(3)
+        logger.info(f"Saving transformed data in csv file at {self.path}")
         save_csv(data_df, self.path)
         return data_df
 

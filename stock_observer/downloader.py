@@ -86,6 +86,7 @@ class Downloader:
             data_df = self.add_primary_key(data_df)
             data_df = data_df[data_df['date'] > max_date.iloc[0][0]]
             logger.info(f"Data size is {data_df.shape}")
+            logger.info(f"Saving downloaded data in csv file at {self.path}")
             save_csv(data_df, self.path)
             return data_df
         else:
