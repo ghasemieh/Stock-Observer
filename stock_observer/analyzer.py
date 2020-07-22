@@ -21,17 +21,17 @@ class Analyzer:
         self.result_table_name = self.config['MySQL']['result table name']
 
     def analysis(self) -> str:
-        data_df, lastest_date = self.data_load(main_table_name=self.main_table_name, day_shift=30)
-        BB_result_df = self.BB_check(data_df=data_df, lastest_date=lastest_date)
-        MA_result_df = self.MA_cross_angle_diff(data_df=data_df, lastest_date=lastest_date)
-        ATR_slope_result_df = self.ATR_slope_change(data_df=data_df, lastest_date=lastest_date)
-        ATR_range_result_df = self.ATR_range(data_df=data_df, lastest_date=lastest_date)
-        CCI_result_df = self.CCI_change(data_df=data_df, lastest_date=lastest_date)
-        # result_df = self.result_integrator(BB=BB_result_df, MA=MA_result_df, ATR_S=ATR_slope_result_df,
-        #                                    ATR_R=ATR_range_result_df, CCI=CCI_result_df)
-        # self.result_logger(table_name=self.result_table_name, result_df=result_df)
-        # result_message = self.alert_message_generator(result_df=result_df)
-        # return result_message
+        data_df, latest_date = self.data_load(main_table_name=self.main_table_name, day_shift=30)
+        BB_result_df = self.BB_check(data_df=data_df, latest_date=latest_date)
+        MA_result_df = self.MA_cross_angle_diff(data_df=data_df, latest_date=latest_date)
+        ATR_slope_result_df = self.ATR_slope_change(data_df=data_df, latest_date=latest_date)
+        ATR_range_result_df = self.ATR_range(data_df=data_df, latest_date=latest_date)
+        CCI_result_df = self.CCI_change(data_df=data_df, latest_date=latest_date)
+        result_df = self.result_integrator(BB=BB_result_df, MA=MA_result_df, ATR_S=ATR_slope_result_df,
+                                           ATR_R=ATR_range_result_df, CCI=CCI_result_df)
+        self.result_logger(table_name=self.result_table_name, result_df=result_df)
+        result_message = self.alert_message_generator(result_df=result_df)
+        return result_message
 
     def data_load(self, main_table_name: str, day_shift: int) -> Tuple[DataFrame, Any]:
         logger.info("Data loading from main database")
@@ -42,9 +42,9 @@ class Analyzer:
         return data_df, latest_date
 
     @staticmethod
-    def BB_check(data_df: DataFrame, lastest_date: date):
+    def BB_check(data_df: DataFrame, latest_date: date):
         logger.info("Bollinger band check")
-        BB_df = data_df[data_df.date == lastest_date][['id', 'ticker', 'date', 'open', 'close', '20_BB_U', '20_BB_L']]
+        BB_df = data_df[data_df.date == latest_date][['id', 'ticker', 'date', 'open', 'close', '20_BB_U', '20_BB_L']]
         BB_df.reset_index(drop=True, inplace=True)
         result_L = []
         result_U = []
@@ -73,9 +73,9 @@ class Analyzer:
         return result_df
 
     @staticmethod
-    def MA_cross_angle_diff(data_df: DataFrame, lastest_date: date) -> DataFrame:
+    def MA_cross_angle_diff(data_df: DataFrame, latest_date: date) -> DataFrame:
         logger.info("MA-5 and MA-20 cross point angle check")
-        MA_df = data_df[data_df.date >= (lastest_date - timedelta(days=3))][['id', 'ticker', 'date', '5_MA', '20_MA',
+        MA_df = data_df[data_df.date >= (latest_date - timedelta(days=3))][['id', 'ticker', 'date', '5_MA', '20_MA',
                                                                              '5_MA_alpha', '20_MA_alpha']]
         MA_df.reset_index(drop=True, inplace=True)
         ticker_list = MA_df.ticker.unique()
@@ -124,9 +124,9 @@ class Analyzer:
         return result_df
 
     @staticmethod
-    def ATR_slope_change(data_df: DataFrame, lastest_date: date) -> DataFrame:
+    def ATR_slope_change(data_df: DataFrame, latest_date: date) -> DataFrame:
         logger.info("ATR slope change check")
-        ATR_S_df = data_df[data_df.date >= (lastest_date - timedelta(days=3))][['id', 'ticker', 'date', '20_ATR_alpha']]
+        ATR_S_df = data_df[data_df.date >= (latest_date - timedelta(days=3))][['id', 'ticker', 'date', '20_ATR_alpha']]
         ATR_S_df.reset_index(drop=True, inplace=True)
         ticker_list = ATR_S_df.ticker.unique()
         result = []
@@ -168,9 +168,9 @@ class Analyzer:
         return result_df
 
     @staticmethod
-    def ATR_range(data_df: DataFrame, lastest_date: date) -> int:
+    def ATR_range(data_df: DataFrame, latest_date: date) -> DataFrame:
         logger.info("ATR 1.5 range check")
-        ATR_R_df = data_df[data_df.date >= (lastest_date - timedelta(days=3))][['id', 'ticker', 'date', 'open',
+        ATR_R_df = data_df[data_df.date >= (latest_date - timedelta(days=3))][['id', 'ticker', 'date', 'open',
                                                                                 'close', '20_ATR']]
         ATR_R_df.reset_index(drop=True, inplace=True)
         ticker_list = ATR_R_df.ticker.unique()
@@ -218,11 +218,10 @@ class Analyzer:
         return result_df
 
     @staticmethod
-    def CCI_change(data_df: DataFrame, lastest_date: date) -> int:
+    def CCI_change(data_df: DataFrame, latest_date: date) -> DataFrame:
         logger.info("CCI change check")
-        signal = 0
 
-        return signal
+        return result_df
 
     @staticmethod
     def result_integrator(BB: DataFrame, MA: DataFrame, ATR_S: DataFrame, ATR_R: DataFrame,
@@ -230,7 +229,7 @@ class Analyzer:
         None
 
     @staticmethod
-    def alert_message_generator(result_df: DataFrame, s1: int, s2: int, s3: int, s4: int, s5: int) -> str:
+    def alert_message_generator(result_df: DataFrame) -> str:
         logger.info("Alert message generator started")
         message = ""
         return message
