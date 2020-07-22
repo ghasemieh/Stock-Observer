@@ -37,7 +37,7 @@ class Transformer:
         data_df = self.add_angle(data_df=data_df, feature='5_MA')
         data_df = self.add_angle(data_df=data_df, feature='20_MA')
         data_df = self.add_angle(data_df=data_df, feature='20_ATR')
-        data_df = self.add_angle(data_df=data_df, feature='30_CCI')
+        # data_df = self.add_angle(data_df=data_df, feature='30_CCI')
 
         data_df = data_df[data_df['date'] >= min(data.date)] #TODO uncomment
         data_df = data_df.round(3)

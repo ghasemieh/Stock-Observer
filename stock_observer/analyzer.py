@@ -29,7 +29,7 @@ class Analyzer:
         CCI_result_df = self.CCI_change(data_df=data_df, latest_date=latest_date)
         result_df = self.result_integrator(BB=BB_result_df, MA=MA_result_df, ATR_S=ATR_slope_result_df,
                                            ATR_R=ATR_range_result_df, CCI=CCI_result_df)
-        self.result_logger(table_name=self.result_table_name, result_df=result_df)
+        self.result_logger(table_name=self.result_table_name, table_type='analysis', data_df=result_df)
         result_message = self.alert_message_generator(result_df=result_df)
         return result_message
 
@@ -57,14 +57,14 @@ class Analyzer:
                 logger.warning(f"{tup.ticker} price broke the BB upper band")
             else:
                 s_u = 0
-            result_U.append(s_u)
+            result_U.append(int(s_u))
 
             if min_price < tup._7:
                 s_l = 1
                 logger.warning(f"{tup.ticker} price broke the BB lower band")
             else:
                 s_l = 0
-            result_L.append(s_l)
+            result_L.append(int(s_l))
 
         result_L_df = DataFrame(result_L, columns=['BB_L_signal'])
         result_U_df = DataFrame(result_U, columns=['BB_U_signal'])
@@ -76,23 +76,23 @@ class Analyzer:
     def MA_cross_angle_diff(data_df: DataFrame, latest_date: date) -> DataFrame:
         logger.info("MA-5 and MA-20 cross point angle check")
         MA_df = data_df[data_df.date >= (latest_date - timedelta(days=3))][['id', 'ticker', 'date', '5_MA', '20_MA',
-                                                                             '5_MA_alpha', '20_MA_alpha']]
+                                                                            '5_MA_alpha', '20_MA_alpha']]
         MA_df.reset_index(drop=True, inplace=True)
         ticker_list = MA_df.ticker.unique()
         result = []
         for ticker in ticker_list:
             temp_df = MA_df[MA_df.ticker == ticker].copy()
-            temp_df.sort_values(by=['date'], inplace=True)
+            temp_df.sort_values(by=['date'], inplace=True, ascending=False)
             temp_df.reset_index(drop=True, inplace=True)
 
             if len(temp_df) == 2:
-                MA_5_y = temp_df.iloc[0]['5_MA']
-                MA_20_y = temp_df.iloc[0]['20_MA']
+                MA_5_y = temp_df.iloc[1]['5_MA']
+                MA_20_y = temp_df.iloc[1]['20_MA']
 
-                MA_5_t = temp_df.iloc[1]['5_MA']
-                MA_20_t = temp_df.iloc[1]['20_MA']
-                MA_5_alpha_t = temp_df.iloc[1]['5_MA_alpha']
-                MA_20_alpha_t = temp_df.iloc[1]['20_MA_alpha']
+                MA_5_t = temp_df.iloc[0]['5_MA']
+                MA_20_t = temp_df.iloc[0]['20_MA']
+                MA_5_alpha_t = temp_df.iloc[0]['5_MA_alpha']
+                MA_20_alpha_t = temp_df.iloc[0]['20_MA_alpha']
                 angle_diff = int(round(abs(MA_5_alpha_t - MA_20_alpha_t), 0))
 
                 if ((MA_5_y < MA_20_y) and (MA_5_t > MA_20_t)) or ((MA_5_y > MA_20_y) and (MA_5_t < MA_20_t)):
@@ -115,12 +115,12 @@ class Analyzer:
                         logger.warning(f"Signal {signal}: {ticker} MA_5 and MA_20 angle difference is {angle_diff}")
                 else:
                     signal = 0
-                result.append((ticker, temp_df.iloc[0]['date'], angle_diff, signal))
+                result.append((temp_df.iloc[0]['id'], ticker, temp_df.iloc[0]['date'], angle_diff, signal))
             else:
                 logger.warning(f"Ticker {ticker} does't have 2 days data in last 3 days")
                 signal = 0
-                result.append((ticker, temp_df.iloc[0]['date'], angle_diff, signal))
-        result_df = DataFrame(result, columns=['ticker', 'date', 'MA_angle_diff', 'MA_signal'])
+                result.append((temp_df.iloc[0]['id'], ticker, temp_df.iloc[0]['date'], angle_diff, signal))
+        result_df = DataFrame(result, columns=['id', 'ticker', 'date', 'MA_angle_diff', 'MA_signal'])
         return result_df
 
     @staticmethod
@@ -132,7 +132,7 @@ class Analyzer:
         result = []
         for ticker in ticker_list:
             temp_df = ATR_S_df[ATR_S_df.ticker == ticker].copy()
-            temp_df.sort_values(by=['date'], inplace=True)
+            temp_df.sort_values(by=['date'], inplace=True, ascending=False)
             temp_df.reset_index(drop=True, inplace=True)
 
             if len(temp_df) == 2:
@@ -157,13 +157,13 @@ class Analyzer:
                     signal = 5
                     logger.warning(f"Signal {signal}: {ticker} ATR slope break is {angle_diff}")
 
-                result.append((ticker, temp_df.iloc[0]['date'], angle_diff, signal))
+                result.append((temp_df.iloc[0]['id'], ticker, temp_df.iloc[0]['date'], angle_diff, signal))
             else:
                 logger.warning(f"Ticker {ticker} does't have 2 days data in last 3 days")
                 signal = 0
-                result.append((ticker, temp_df.iloc[0]['date'], angle_diff, signal))
+                result.append((temp_df.iloc[0]['id'], ticker, temp_df.iloc[0]['date'], angle_diff, signal))
 
-        result_df = DataFrame(result, columns=['ticker', 'date', 'ATR_angle_diff', 'ATR_slope_change_signal'])
+        result_df = DataFrame(result, columns=['id', 'ticker', 'date', 'ATR_angle_diff', 'ATR_slope_change_signal'])
 
         return result_df
 
@@ -171,13 +171,13 @@ class Analyzer:
     def ATR_range(data_df: DataFrame, latest_date: date) -> DataFrame:
         logger.info("ATR 1.5 range check")
         ATR_R_df = data_df[data_df.date >= (latest_date - timedelta(days=3))][['id', 'ticker', 'date', 'open',
-                                                                                'close', '20_ATR']]
+                                                                               'close', '20_ATR']]
         ATR_R_df.reset_index(drop=True, inplace=True)
         ticker_list = ATR_R_df.ticker.unique()
         result = []
         for ticker in ticker_list:
             temp_df = ATR_R_df[ATR_R_df.ticker == ticker].copy()
-            temp_df.sort_values(by=['date'], inplace=True)
+            temp_df.sort_values(by=['date'], inplace=True, ascending=False)
             temp_df.reset_index(drop=True, inplace=True)
 
             if len(temp_df) == 2:
@@ -208,36 +208,80 @@ class Analyzer:
                     logger.warning(
                         f"Signal {signal}: {ticker} Candal size is {round(candal_size / ATR_y, 2)} times of ATR")
 
-                result.append((ticker, temp_df.iloc[0]['date'], round(candal_size / ATR_y, 2), signal))
+                result.append((temp_df.iloc[0]['id'], ticker, temp_df.iloc[0]['date'], round(candal_size / ATR_y, 2), signal))
             else:
                 logger.warning(f"Ticker {ticker} does't have 2 days data in last 3 days")
                 signal = 0
-                result.append((ticker, temp_df.iloc[0]['date'], round(candal_size / ATR_y, 2), signal))
+                result.append((temp_df.iloc[0]['id'], ticker, temp_df.iloc[0]['date'], round(candal_size / ATR_y, 2), signal))
 
-        result_df = DataFrame(result, columns=['ticker', 'date', 'candal_ATR_ratio', 'ATR_candal_size_signal'])
+        result_df = DataFrame(result, columns=['id', 'ticker', 'date', 'candal_ATR_ratio', 'ATR_candal_size_signal'])
         return result_df
 
     @staticmethod
     def CCI_change(data_df: DataFrame, latest_date: date) -> DataFrame:
         logger.info("CCI change check")
-
+        data_df.reset_index(drop=True, inplace=True)
+        ticker_list = data_df.ticker.unique()
+        result = []
+        for ticker in ticker_list:
+            trigger = False
+            status = 0
+            signal: int = 0
+            temp_df = data_df[data_df.ticker == ticker][['id', 'ticker', 'date', '30_CCI']].copy()
+            temp_df.sort_values(by=['date'], inplace=True)
+            temp_df.reset_index(drop=True, inplace=True)
+            for tup in temp_df.itertuples():
+                CCI = tup._4
+                if CCI > 100:
+                    trigger = True
+                    status = 1
+                if CCI < -100:
+                    trigger = True
+                    status = 2
+                if trigger:
+                    if CCI < -50 and status == 1:
+                        signal = 1
+                        logger.warning(f"{ticker} CCI drop from +100 to -50")
+                    if CCI > 50 and status == 2:
+                        signal = 1
+                        logger.warning(f"{ticker} CCI raise from -50 to +100")
+                result.append((tup.id, ticker, tup.date, signal))
+                signal = 0
+        result_df = DataFrame(result, columns=['id', 'ticker', 'date', 'CCI_signal'])
+        result_df = result_df[result_df.date == latest_date]
         return result_df
 
     @staticmethod
     def result_integrator(BB: DataFrame, MA: DataFrame, ATR_S: DataFrame, ATR_R: DataFrame,
                           CCI: DataFrame) -> DataFrame:
-        None
+        data_df = BB.merge(MA, on=['id', 'ticker', 'date'], how='outer')
+        data_df = data_df.merge(ATR_S, on=['id', 'ticker', 'date'], how='outer')
+        data_df = data_df.merge(ATR_R, on=['id', 'ticker', 'date'], how='outer')
+        data_df = data_df.merge(CCI, on=['id', 'ticker', 'date'], how='outer')
+        data_df.sort_values(by=['id', 'ticker', 'date'], inplace=True)
+        data_df.reset_index(drop=True, inplace=True)
+        return data_df
+
+    def result_logger(self, table_name: str, table_type: str, data_df: DataFrame) -> None:
+        if not data_df.empty:
+            mysql = MySQL_Connection(config=self.config)
+            test = mysql.select(f"SELECT * FROM {table_name} LIMIT 3;")
+            if test is None:
+                derivative_features = list(data_df.columns)[3:]
+                mysql.create_table(table_name=table_name, table_type=table_type,
+                                   derivative_features=derivative_features)
+                mysql.insert_df(data_df=data_df, table_name=table_name, primary_key='id', if_exists='append')
+            else:
+                logger.info(f"Update {table_name} table in the database")
+                mysql.insert_df(data_df=data_df, table_name=table_name, primary_key='id', if_exists='append')
+        else:
+            logger.warning("Database insertion received empty data frame")
 
     @staticmethod
     def alert_message_generator(result_df: DataFrame) -> str:
         logger.info("Alert message generator started")
         message = ""
         return message
-
-    @staticmethod
-    def result_logger(table_name: str, result_df: DataFrame) -> None:
-        None
-
 
 if __name__ == '__main__':
     analyzer = Analyzer(config=configuration.get())

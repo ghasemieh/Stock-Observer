@@ -51,6 +51,13 @@ class MySQL_Connection:
                         close double, 
                         volume bigint(20), 
                         {cols});"""
+        elif table_type == 'analysis':
+            cols = " double, ".join([str(i) for i in derivative_features]) + " double"
+            query = f"""CREATE TABLE {table_name} (
+                        id VARCHAR(20) NOT NULL PRIMARY KEY, 
+                        ticker VARCHAR(10) NOT NULL, 
+                        date date NOT NULL, 
+                        {cols});"""
         self.cursor.execute(query)
 
     def insert(self, table_name, data_df: DataFrame) -> None:
