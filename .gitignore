@@ -11,3 +11,4 @@ logs/pipeline.log*
 __pycache__
 
 /email_credential.txt
+/analysis/

@@ -1,10 +1,12 @@
 import configuration
+from pathlib import Path
 from pandas import DataFrame
 from typing import Tuple, Any
 from log_setup import get_logger
 from configparser import ConfigParser
 from datetime import timedelta, date
 from stock_observer.database.database_communication import MySQL_Connection
+from utils import save_csv
 
 logger = get_logger(__name__)
 
@@ -14,6 +16,7 @@ class Analyzer:
         self.config = config
         self.main_table_name = self.config['MySQL']['main table name']
         self.result_table_name = self.config['MySQL']['result table name']
+        self.path = config['Data_Sources']['analysis equity price csv']
 
     def analysis(self) -> None:
         data_df, latest_date = self.data_load(day_shift=30)
@@ -24,7 +27,7 @@ class Analyzer:
         CCI_result_df = self.CCI_change(data_df=data_df, latest_date=latest_date)
         result_df = self.result_integrator(BB=BB_result_df, MA=MA_result_df, ATR_S=ATR_slope_result_df,
                                            ATR_R=ATR_range_result_df, CCI=CCI_result_df)
-        self.result_logger(table_name=self.result_table_name, table_type='analysis', data_df=result_df)
+        self.result_logger(table_name=self.result_table_name, table_type='analysis', data_df=result_df, latest_date=latest_date)
 
     def data_load(self, day_shift: int) -> Tuple[DataFrame, Any]:
         logger.info("Data loading from main database")
@@ -257,8 +260,9 @@ class Analyzer:
         data_df.reset_index(drop=True, inplace=True)
         return data_df
 
-    def result_logger(self, table_name: str, table_type: str, data_df: DataFrame) -> None:
+    def result_logger(self, table_name: str, table_type: str, data_df: DataFrame, latest_date: date) -> None:
         if not data_df.empty:
+            save_csv(data_df, Path(f"{self.path}_{latest_date}.csv"))
             mysql = MySQL_Connection(config=self.config)
             test = mysql.select(f"SELECT * FROM {table_name} LIMIT 3;")
             if test is None:
@@ -275,4 +279,4 @@ class Analyzer:
 
 if __name__ == '__main__':
     analyzer = Analyzer(config=configuration.get())
-    result = analyzer.analysis()
+    analyzer.analysis()

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from stock_observer.analyzer import Analyzer
 from stock_observer.decision_maker import Decision_Maker
-from utils import read_csv
+from utils import read_csv, create_directory
 from argparse import Namespace
 from log_setup import get_logger
 from argparse import ArgumentParser
@@ -27,6 +27,10 @@ class Stock_Observer_Pipeline:
         self.ticker_list_path = Path(config['Data_Sources']['tickers list csv'])
         self.stage_table_name = self.config['MySQL']['stage table name']
         self.main_table_name = self.config['MySQL']['main table name']
+        self.data_folder_path = Path(config['General']['data directory'])
+        self.data_download_folder_path = Path(config['General']['data download directory'])
+        self.data_transform_folder_path = Path(config['General']['data transform directory'])
+        self.data_analysis_folder_path = Path(config['General']['data analysis directory'])
 
     def stock_observer_pipeline(self, arguments: List[str]) -> None:
         logger.info("+----------------------------------+")
@@ -46,6 +50,11 @@ class Stock_Observer_Pipeline:
         parser.add_argument("-N", "--notify", help="download raw data files", action="store_true")
 
         args: Namespace = parser.parse_args(args=arguments)
+
+        create_directory(self.data_folder_path)
+        create_directory(self.data_download_folder_path)
+        create_directory(self.data_transform_folder_path)
+        create_directory(self.data_analysis_folder_path)
 
         try:
             if args.download:
