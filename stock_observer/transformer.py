@@ -27,7 +27,7 @@ class Transformer:
             logger.warning("Transformation received empty data frame")
             return DataFrame()
 
-        data_df = self.data_load(data, self.stage_table_name, day_shift=30)
+        data_df = self.data_load(data, day_shift=30)
 
         data_df = self.add_moving_avg(data_df=data_df, n_days=self.moving_avg_period_1)
         data_df = self.add_moving_avg(data_df=data_df, n_days=self.moving_avg_period_2)
@@ -44,7 +44,7 @@ class Transformer:
         save_csv(data_df, self.path)
         return data_df
 
-    def data_load(self, data: DataFrame, stage_table_name: str, day_shift: int) -> DataFrame:
+    def data_load(self, data: DataFrame, day_shift: int) -> DataFrame:
         logger.info("Data loading from staging database")
         if data.empty:
             least_date = str_to_datetime('2000-01-01').date()
@@ -52,7 +52,7 @@ class Transformer:
             least_date = min(data.date)
         starting_date = least_date - timedelta(days=(day_shift + 3))
         mysql = MySQL_Connection(config=self.config)
-        data_df = mysql.select(f"SELECT * FROM {stage_table_name} WHERE date > '{starting_date}';")
+        data_df = mysql.select(f"SELECT * FROM {self.stage_table_name} WHERE date > '{starting_date}';")
         return data_df
 
     @staticmethod

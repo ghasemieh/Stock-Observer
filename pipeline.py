@@ -5,6 +5,7 @@ from typing import List
 from pathlib import Path
 
 from stock_observer.analyzer import Analyzer
+from stock_observer.decision_maker import Decision_Maker
 from utils import read_csv
 from argparse import Namespace
 from log_setup import get_logger
@@ -41,6 +42,7 @@ class Stock_Observer_Pipeline:
         parser.add_argument("-T", "--transform", help="download raw data files", action="store_true")
         parser.add_argument("-M", "--main_db", help="download raw data files", action="store_true")
         parser.add_argument("-A", "--analyzer", help="download raw data files", action="store_true")
+        parser.add_argument("-DM", "--decision_maker", help="download raw data files", action="store_true")
         parser.add_argument("-N", "--notify", help="download raw data files", action="store_true")
 
         args: Namespace = parser.parse_args(args=arguments)
@@ -94,7 +96,17 @@ class Stock_Observer_Pipeline:
                 pipeline_report_step = self.pipeline_report.create_step("Analyzer")
                 try:
                     analyzer = Analyzer(self.config)
-                    result = analyzer.analysis()
+                    analyzer.analysis()
+                except BaseException as e:
+                    pipeline_report_step.mark_failure(str(e))
+                    raise e
+
+            if args.decision_maker:
+                logger.info("-------- Decision maker started. --------")
+                pipeline_report_step = self.pipeline_report.create_step("Decision Maker")
+                try:
+                    decision_maker = Decision_Maker(self.config)
+                    alert_message = decision_maker.decide()
                 except BaseException as e:
                     pipeline_report_step.mark_failure(str(e))
                     raise e
@@ -104,7 +116,7 @@ class Stock_Observer_Pipeline:
                 pipeline_report_step = self.pipeline_report.create_step("Notifier")
                 try:
                     notifier = Notifier(self.config)
-                    notifier.notifier(result_message=result)
+                    notifier.notifier(message=alert_message)
                 except BaseException as e:
                     pipeline_report_step.mark_failure(str(e))
                     raise e

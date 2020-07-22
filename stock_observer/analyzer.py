@@ -1,14 +1,9 @@
+import configuration
+from pandas import DataFrame
 from typing import Tuple, Any
-
 from log_setup import get_logger
 from configparser import ConfigParser
-import numpy as np
-import matplotlib.pyplot as plt
-from pandas import DataFrame, read_csv
-import pandas as pd
-import sympy as sp
-import configuration
-from datetime import datetime, timedelta, date
+from datetime import timedelta, date
 from stock_observer.database.database_communication import MySQL_Connection
 
 logger = get_logger(__name__)
@@ -20,8 +15,8 @@ class Analyzer:
         self.main_table_name = self.config['MySQL']['main table name']
         self.result_table_name = self.config['MySQL']['result table name']
 
-    def analysis(self) -> str:
-        data_df, latest_date = self.data_load(main_table_name=self.main_table_name, day_shift=30)
+    def analysis(self) -> None:
+        data_df, latest_date = self.data_load(day_shift=30)
         BB_result_df = self.BB_check(data_df=data_df, latest_date=latest_date)
         MA_result_df = self.MA_cross_angle_diff(data_df=data_df, latest_date=latest_date)
         ATR_slope_result_df = self.ATR_slope_change(data_df=data_df, latest_date=latest_date)
@@ -30,14 +25,12 @@ class Analyzer:
         result_df = self.result_integrator(BB=BB_result_df, MA=MA_result_df, ATR_S=ATR_slope_result_df,
                                            ATR_R=ATR_range_result_df, CCI=CCI_result_df)
         self.result_logger(table_name=self.result_table_name, table_type='analysis', data_df=result_df)
-        result_message = self.alert_message_generator(result_df=result_df)
-        return result_message
 
-    def data_load(self, main_table_name: str, day_shift: int) -> Tuple[DataFrame, Any]:
+    def data_load(self, day_shift: int) -> Tuple[DataFrame, Any]:
         logger.info("Data loading from main database")
         starting_date = date.today() - timedelta(days=(day_shift + 3))
         mysql = MySQL_Connection(config=self.config)
-        data_df = mysql.select(f"SELECT * FROM {main_table_name} WHERE date > '{starting_date}';")
+        data_df = mysql.select(f"SELECT * FROM {self.main_table_name} WHERE date > '{starting_date}';")
         latest_date = max(data_df.date)
         return data_df, latest_date
 
@@ -208,11 +201,13 @@ class Analyzer:
                     logger.warning(
                         f"Signal {signal}: {ticker} Candal size is {round(candal_size / ATR_y, 2)} times of ATR")
 
-                result.append((temp_df.iloc[0]['id'], ticker, temp_df.iloc[0]['date'], round(candal_size / ATR_y, 2), signal))
+                result.append(
+                    (temp_df.iloc[0]['id'], ticker, temp_df.iloc[0]['date'], round(candal_size / ATR_y, 2), signal))
             else:
                 logger.warning(f"Ticker {ticker} does't have 2 days data in last 3 days")
                 signal = 0
-                result.append((temp_df.iloc[0]['id'], ticker, temp_df.iloc[0]['date'], round(candal_size / ATR_y, 2), signal))
+                result.append(
+                    (temp_df.iloc[0]['id'], ticker, temp_df.iloc[0]['date'], round(candal_size / ATR_y, 2), signal))
 
         result_df = DataFrame(result, columns=['id', 'ticker', 'date', 'candal_ATR_ratio', 'ATR_candal_size_signal'])
         return result_df
@@ -277,11 +272,6 @@ class Analyzer:
         else:
             logger.warning("Database insertion received empty data frame")
 
-    @staticmethod
-    def alert_message_generator(result_df: DataFrame) -> str:
-        logger.info("Alert message generator started")
-        message = ""
-        return message
 
 if __name__ == '__main__':
     analyzer = Analyzer(config=configuration.get())
