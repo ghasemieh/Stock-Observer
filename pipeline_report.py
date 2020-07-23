@@ -93,5 +93,5 @@ class PipelineReport:
         for pipeline_report_step in self.steps:
             pipeline_report_step.log()
         logger.info("------------------------------------------------------------------------")
-        logger.info(f"ETL Pipeline complete, status: {self.status}. Elapsed time {format_timedelta(self.calculate_elapsed_time())}")
+        logger.info(f"Analyzer Pipeline complete, status: {self.status}. Elapsed time {format_timedelta(self.calculate_elapsed_time())}")
         logger.info("------------------------------------------------------------------------")

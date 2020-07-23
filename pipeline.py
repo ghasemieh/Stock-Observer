@@ -3,7 +3,6 @@ import argparse
 import configuration
 from typing import List
 from pathlib import Path
-
 from stock_observer.analyzer import Analyzer
 from stock_observer.decision_maker import Decision_Maker
 from utils import read_csv, create_directory
@@ -117,7 +116,7 @@ class Stock_Observer_Pipeline:
                 pipeline_report_step = self.pipeline_report.create_step("Decision Maker")
                 try:
                     decision_maker = Decision_Maker(self.config)
-                    alert_message = decision_maker.decide()
+                    alert_message, attachment_path = decision_maker.decide()
                 except BaseException as e:
                     pipeline_report_step.mark_failure(str(e))
                     raise e
@@ -127,7 +126,7 @@ class Stock_Observer_Pipeline:
                 pipeline_report_step = self.pipeline_report.create_step("Notifier")
                 try:
                     notifier = Notifier(self.config)
-                    notifier.notifier(message=alert_message)
+                    notifier.notifier(alert_message=alert_message, attachment_path=attachment_path)
                 except BaseException as e:
                     pipeline_report_step.mark_failure(str(e))
                     raise e

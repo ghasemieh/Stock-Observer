@@ -19,7 +19,7 @@ class Notifier:
         self.equity_price = config['Data_Sources']['equity price csv']
         self.processed_equity_price = config['Data_Sources']['processed equity price csv']
 
-    def notifier(self, message: str) -> None:
+    def notifier(self, alert_message: str, attachment_path: str) -> None:
         try:
             credential = open("email_credential.txt", "r")
 
@@ -29,7 +29,7 @@ class Notifier:
             receiver_email = [self.alireza_address, self.mehrdad_address]
 
             message = MIMEMultipart("alternative")
-            message['Subject'] = 'Daily Equity Price from Stock Observer'
+            message['Subject'] = 'Daily Stock Alert from Stock Observer'
             message['From'] = sender_email
             message['To'] = ', '.join(receiver_email)
 
@@ -37,7 +37,7 @@ class Notifier:
             text = f"""\
             Hi,
             Check the daily equity price in the attachment.
-            {message}
+            {alert_message}
             """
 
             html = f"""\
@@ -45,7 +45,7 @@ class Notifier:
               <body>
                 <p>Hi,<br>
                    Check the daily equity price in the attachment.<br>
-                   {message}<br>
+                   {alert_message}<br>
                 </p>
               </body>
             </html>
@@ -61,7 +61,7 @@ class Notifier:
             message.attach(part2)
 
             # Attachment Section --------------------------------
-            filename1 = "logs/pipeline.log"  # In same directory as script
+            filename1 = attachment_path  # In same directory as script
             # Open PDF file in binary mode
             with open(filename1, "rb") as attachment:
                 # Add file as application/octet-stream

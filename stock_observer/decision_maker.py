@@ -1,3 +1,5 @@
+from typing import Tuple
+
 from log_setup import get_logger
 from configparser import ConfigParser
 from pandas import DataFrame
@@ -14,11 +16,13 @@ class Decision_Maker:
     def __init__(self, config: ConfigParser):
         self.config = config
         self.result_table_name = self.config['MySQL']['result table name']
+        self.result_file_path = f"{self.config['Data_Sources']['analysis equity price csv']}_{date.today()}.csv"
 
-    def decide(self) -> str:
+    def decide(self) -> Tuple[str, str]:
         data_df = self.data_load()
         alert_message = self.alert_message_generator(result_df=data_df)
-        return alert_message
+        result_file_path =""
+        return alert_message, self.result_file_path
 
     def data_load(self) -> DataFrame:
         logger.info("Data loading from analysis database")
