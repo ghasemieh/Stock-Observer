@@ -84,7 +84,7 @@ class Stock_Observer_Pipeline:
                 pipeline_report_step = self.pipeline_report.create_step("Transformation")
                 try:
                     transformation = Transformer(self.config)
-                    processed_data_df = transformation.transform(data=data_df) # TODO add data=data_df
+                    processed_data_df = transformation.transform(data=data_df)
                 except BaseException as e:
                     pipeline_report_step.mark_failure(str(e))
                     raise e

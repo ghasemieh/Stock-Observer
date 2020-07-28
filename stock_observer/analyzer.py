@@ -1,7 +1,6 @@
 import configuration
 from pathlib import Path
 from pandas import DataFrame
-from typing import Tuple, Any
 from log_setup import get_logger
 from configparser import ConfigParser
 from datetime import timedelta, date
@@ -18,11 +17,8 @@ class Analyzer:
         self.result_table_name = self.config['MySQL']['result table name']
         self.path = config['Data_Sources']['analysis equity price csv']
 
-    def analysis(self, data: DataFrame = None) -> DataFrame:
-        if data is None:
-            data_df = self.data_load(day_shift=30)
-        else:
-            data_df = data
+    def analysis(self) -> DataFrame:
+        data_df = self.data_load(day_shift=30)
         BB_result_df = self.BB_check(data_df=data_df)
         MA_result_df = self.MA_cross_angle_diff(data_df=data_df)
         ATR_slope_result_df = self.ATR_slope_change(data_df=data_df)
@@ -33,7 +29,7 @@ class Analyzer:
         self.result_logger(table_name=self.result_table_name, table_type='analysis', data_df=result_df)
         return result_df
 
-    def data_load(self, day_shift: int) -> Tuple[DataFrame, Any]:
+    def data_load(self, day_shift: int) -> DataFrame:
         logger.info("Data loading from main database")
         starting_date = date.today() - timedelta(days=(day_shift + 3))
         mysql = MySQL_Connection(config=self.config)
@@ -44,7 +40,7 @@ class Analyzer:
     def BB_check(data_df: DataFrame):
         logger.info("Bollinger band check")
         latest_date = max(data_df.date)
-        BB_df = data_df[data_df.date == latest_date][['id', 'ticker', 'date', 'open', 'close', '20_BB_U', '20_BB_L']]
+        BB_df = data_df[data_df.date == latest_date][['id', 'ticker', 'date', 'open', 'close', 'BB_U_20', 'BB_L_20']]
         BB_df.reset_index(drop=True, inplace=True)
         result_L = []
         result_U = []
@@ -52,14 +48,14 @@ class Analyzer:
             max_price = max(tup.open, tup.close)
             min_price = min(tup.open, tup.close)
 
-            if max_price > tup._6:
+            if max_price > tup.BB_U_20:
                 s_u = 1
                 logger.warning(f"{tup.ticker} price broke the BB upper band")
             else:
                 s_u = 0
             result_U.append(int(s_u))
 
-            if min_price < tup._7:
+            if min_price < tup.BB_L_20:
                 s_l = 1
                 logger.warning(f"{tup.ticker} price broke the BB lower band")
             else:
@@ -69,15 +65,15 @@ class Analyzer:
         result_L_df = DataFrame(result_L, columns=['BB_L_signal'])
         result_U_df = DataFrame(result_U, columns=['BB_U_signal'])
         result_df = BB_df.join(result_U_df.join(result_L_df))
-        result_df.drop(columns=['open', 'close', '20_BB_U', '20_BB_L'], inplace=True)
+        result_df.drop(columns=['open', 'close', 'BB_U_20', 'BB_L_20'], inplace=True)
         return result_df
 
     @staticmethod
     def MA_cross_angle_diff(data_df: DataFrame) -> DataFrame:
         logger.info("MA-5 and MA-20 cross point angle check")
         latest_date = max(data_df.date)
-        MA_df = data_df[data_df.date >= (latest_date - timedelta(days=3))][['id', 'ticker', 'date', '5_MA', '20_MA',
-                                                                            '5_MA_alpha', '20_MA_alpha']]
+        MA_df = data_df[data_df.date >= (latest_date - timedelta(days=5))][['id', 'ticker', 'date', 'MA_5', 'MA_20',
+                                                                            'MA_5_alpha', 'MA_20_alpha']]
         MA_df.reset_index(drop=True, inplace=True)
         ticker_list = MA_df.ticker.unique()
         result = []
@@ -87,13 +83,13 @@ class Analyzer:
             temp_df.reset_index(drop=True, inplace=True)
 
             if len(temp_df) >= 2:
-                MA_5_y = temp_df.iloc[1]['5_MA']
-                MA_20_y = temp_df.iloc[1]['20_MA']
+                MA_5_y = temp_df.iloc[1]['MA_5']
+                MA_20_y = temp_df.iloc[1]['MA_20']
 
-                MA_5_t = temp_df.iloc[0]['5_MA']
-                MA_20_t = temp_df.iloc[0]['20_MA']
-                MA_5_alpha_t = temp_df.iloc[0]['5_MA_alpha']
-                MA_20_alpha_t = temp_df.iloc[0]['20_MA_alpha']
+                MA_5_t = temp_df.iloc[0]['MA_5']
+                MA_20_t = temp_df.iloc[0]['MA_20']
+                MA_5_alpha_t = temp_df.iloc[0]['MA_5_alpha']
+                MA_20_alpha_t = temp_df.iloc[0]['MA_20_alpha']
                 angle_diff = round(abs(MA_5_alpha_t - MA_20_alpha_t), 0)
 
                 if ((MA_5_y < MA_20_y) and (MA_5_t > MA_20_t)) or ((MA_5_y > MA_20_y) and (MA_5_t < MA_20_t)):
@@ -128,7 +124,7 @@ class Analyzer:
     def ATR_slope_change(data_df: DataFrame) -> DataFrame:
         logger.info("ATR slope change check")
         latest_date = max(data_df.date)
-        ATR_S_df = data_df[data_df.date >= (latest_date - timedelta(days=3))][['id', 'ticker', 'date', '20_ATR_alpha']]
+        ATR_S_df = data_df[data_df.date >= (latest_date - timedelta(days=5))][['id', 'ticker', 'date', 'ATR_20_alpha']]
         ATR_S_df.reset_index(drop=True, inplace=True)
         ticker_list = ATR_S_df.ticker.unique()
         result = []
@@ -138,8 +134,8 @@ class Analyzer:
             temp_df.reset_index(drop=True, inplace=True)
 
             if len(temp_df) >= 2:
-                ATR_alpha_t = temp_df.iloc[0]['20_ATR_alpha']
-                ATR_alpha_y = temp_df.iloc[1]['20_ATR_alpha']
+                ATR_alpha_t = temp_df.iloc[0]['ATR_20_alpha']
+                ATR_alpha_y = temp_df.iloc[1]['ATR_20_alpha']
                 angle_diff = round(abs(ATR_alpha_t - ATR_alpha_y), 0)
                 if angle_diff <= 30:
                     signal = 0
@@ -173,8 +169,8 @@ class Analyzer:
     def ATR_range(data_df: DataFrame) -> DataFrame:
         logger.info("ATR 1.5 range check")
         latest_date = max(data_df.date)
-        ATR_R_df = data_df[data_df.date >= (latest_date - timedelta(days=3))][['id', 'ticker', 'date', 'open',
-                                                                               'close', '20_ATR']]
+        ATR_R_df = data_df[data_df.date >= (latest_date - timedelta(days=5))][['id', 'ticker', 'date', 'open',
+                                                                               'close', 'ATR_20']]
         ATR_R_df.reset_index(drop=True, inplace=True)
         ticker_list = ATR_R_df.ticker.unique()
         result = []
@@ -186,7 +182,7 @@ class Analyzer:
             if len(temp_df) >= 2:
                 open_t = temp_df.iloc[0]['open']
                 close_t = temp_df.iloc[0]['close']
-                ATR_y = temp_df.iloc[1]['20_ATR']
+                ATR_y = temp_df.iloc[1]['ATR_20']
                 candal_size = abs(open_t - close_t)
                 if candal_size <= ATR_y:
                     signal = 0
@@ -233,11 +229,11 @@ class Analyzer:
             trigger = False
             status = 0
             signal: int = 0
-            temp_df = data_df[data_df.ticker == ticker][['id', 'ticker', 'date', '30_CCI']].copy()
+            temp_df = data_df[data_df.ticker == ticker][['id', 'ticker', 'date', 'CCI_30']].copy()
             temp_df.sort_values(by=['date'], inplace=True)
             temp_df.reset_index(drop=True, inplace=True)
             for tup in temp_df.itertuples():
-                CCI = tup._4
+                CCI = tup.CCI_30
                 if CCI > 100:
                     trigger = True
                     status = 1
@@ -251,9 +247,9 @@ class Analyzer:
                     if CCI > 50 and status == 2:
                         signal = 1
                         logger.warning(f"{ticker} CCI raise from -50 to +100")
-                result.append((tup.id, ticker, tup.date, signal))
+                result.append((tup.id, ticker, tup.date, CCI, signal))
                 signal = 0
-        result_df = DataFrame(result, columns=['id', 'ticker', 'date', 'CCI_signal'])
+        result_df = DataFrame(result, columns=['id', 'ticker', 'date', 'CCI', 'CCI_signal'])
         result_df = result_df[result_df.date == latest_date]
         return result_df
 

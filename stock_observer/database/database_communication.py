@@ -107,7 +107,7 @@ class MySQL_Connection:
         db_connection = engine.connect()
         try:
             test = self.select(f"SELECT * FROM {table_name} LIMIT 3;")
-            if test is not None:
+            if not test.empty:
                 counter = 0
                 logger.info(f"Deleting old data from data warehouse")
                 key_list = data_df[primary_key]
