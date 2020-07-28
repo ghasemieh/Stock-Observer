@@ -18,28 +18,32 @@ class Analyzer:
         self.result_table_name = self.config['MySQL']['result table name']
         self.path = config['Data_Sources']['analysis equity price csv']
 
-    def analysis(self) -> None:
-        data_df, latest_date = self.data_load(day_shift=30)
-        BB_result_df = self.BB_check(data_df=data_df, latest_date=latest_date)
-        MA_result_df = self.MA_cross_angle_diff(data_df=data_df, latest_date=latest_date)
-        ATR_slope_result_df = self.ATR_slope_change(data_df=data_df, latest_date=latest_date)
-        ATR_range_result_df = self.ATR_range(data_df=data_df, latest_date=latest_date)
-        CCI_result_df = self.CCI_change(data_df=data_df, latest_date=latest_date)
+    def analysis(self, data: DataFrame = None) -> DataFrame:
+        if data is None:
+            data_df = self.data_load(day_shift=30)
+        else:
+            data_df = data
+        BB_result_df = self.BB_check(data_df=data_df)
+        MA_result_df = self.MA_cross_angle_diff(data_df=data_df)
+        ATR_slope_result_df = self.ATR_slope_change(data_df=data_df)
+        ATR_range_result_df = self.ATR_range(data_df=data_df)
+        CCI_result_df = self.CCI_change(data_df=data_df)
         result_df = self.result_integrator(BB=BB_result_df, MA=MA_result_df, ATR_S=ATR_slope_result_df,
                                            ATR_R=ATR_range_result_df, CCI=CCI_result_df)
-        self.result_logger(table_name=self.result_table_name, table_type='analysis', data_df=result_df, latest_date=latest_date)
+        self.result_logger(table_name=self.result_table_name, table_type='analysis', data_df=result_df)
+        return result_df
 
     def data_load(self, day_shift: int) -> Tuple[DataFrame, Any]:
         logger.info("Data loading from main database")
         starting_date = date.today() - timedelta(days=(day_shift + 3))
         mysql = MySQL_Connection(config=self.config)
         data_df = mysql.select(f"SELECT * FROM {self.main_table_name} WHERE date > '{starting_date}';")
-        latest_date = max(data_df.date)
-        return data_df, latest_date
+        return data_df
 
     @staticmethod
-    def BB_check(data_df: DataFrame, latest_date: date):
+    def BB_check(data_df: DataFrame):
         logger.info("Bollinger band check")
+        latest_date = max(data_df.date)
         BB_df = data_df[data_df.date == latest_date][['id', 'ticker', 'date', 'open', 'close', '20_BB_U', '20_BB_L']]
         BB_df.reset_index(drop=True, inplace=True)
         result_L = []
@@ -69,8 +73,9 @@ class Analyzer:
         return result_df
 
     @staticmethod
-    def MA_cross_angle_diff(data_df: DataFrame, latest_date: date) -> DataFrame:
+    def MA_cross_angle_diff(data_df: DataFrame) -> DataFrame:
         logger.info("MA-5 and MA-20 cross point angle check")
+        latest_date = max(data_df.date)
         MA_df = data_df[data_df.date >= (latest_date - timedelta(days=3))][['id', 'ticker', 'date', '5_MA', '20_MA',
                                                                             '5_MA_alpha', '20_MA_alpha']]
         MA_df.reset_index(drop=True, inplace=True)
@@ -89,7 +94,7 @@ class Analyzer:
                 MA_20_t = temp_df.iloc[0]['20_MA']
                 MA_5_alpha_t = temp_df.iloc[0]['5_MA_alpha']
                 MA_20_alpha_t = temp_df.iloc[0]['20_MA_alpha']
-                angle_diff = int(round(abs(MA_5_alpha_t - MA_20_alpha_t), 0))
+                angle_diff = round(abs(MA_5_alpha_t - MA_20_alpha_t), 0)
 
                 if ((MA_5_y < MA_20_y) and (MA_5_t > MA_20_t)) or ((MA_5_y > MA_20_y) and (MA_5_t < MA_20_t)):
                     if angle_diff <= 10:
@@ -120,8 +125,9 @@ class Analyzer:
         return result_df
 
     @staticmethod
-    def ATR_slope_change(data_df: DataFrame, latest_date: date) -> DataFrame:
+    def ATR_slope_change(data_df: DataFrame) -> DataFrame:
         logger.info("ATR slope change check")
+        latest_date = max(data_df.date)
         ATR_S_df = data_df[data_df.date >= (latest_date - timedelta(days=3))][['id', 'ticker', 'date', '20_ATR_alpha']]
         ATR_S_df.reset_index(drop=True, inplace=True)
         ticker_list = ATR_S_df.ticker.unique()
@@ -134,7 +140,7 @@ class Analyzer:
             if len(temp_df) >= 2:
                 ATR_alpha_t = temp_df.iloc[0]['20_ATR_alpha']
                 ATR_alpha_y = temp_df.iloc[1]['20_ATR_alpha']
-                angle_diff = int(round(abs(ATR_alpha_t - ATR_alpha_y), 0))
+                angle_diff = round(abs(ATR_alpha_t - ATR_alpha_y), 0)
                 if angle_diff <= 30:
                     signal = 0
                 elif 30 < angle_diff < 45:
@@ -164,8 +170,9 @@ class Analyzer:
         return result_df
 
     @staticmethod
-    def ATR_range(data_df: DataFrame, latest_date: date) -> DataFrame:
+    def ATR_range(data_df: DataFrame) -> DataFrame:
         logger.info("ATR 1.5 range check")
+        latest_date = max(data_df.date)
         ATR_R_df = data_df[data_df.date >= (latest_date - timedelta(days=3))][['id', 'ticker', 'date', 'open',
                                                                                'close', '20_ATR']]
         ATR_R_df.reset_index(drop=True, inplace=True)
@@ -216,8 +223,9 @@ class Analyzer:
         return result_df
 
     @staticmethod
-    def CCI_change(data_df: DataFrame, latest_date: date) -> DataFrame:
+    def CCI_change(data_df: DataFrame) -> DataFrame:
         logger.info("CCI change check")
+        latest_date = max(data_df.date)
         data_df.reset_index(drop=True, inplace=True)
         ticker_list = data_df.ticker.unique()
         result = []
@@ -260,8 +268,9 @@ class Analyzer:
         data_df.reset_index(drop=True, inplace=True)
         return data_df
 
-    def result_logger(self, table_name: str, table_type: str, data_df: DataFrame, latest_date: date) -> None:
+    def result_logger(self, table_name: str, table_type: str, data_df: DataFrame) -> None:
         if not data_df.empty:
+            latest_date = max(data_df.date)
             logger.info(f"Saving analysis csv file in {self.path}_{latest_date}.csv")
             save_csv(data_df, Path(f"{self.path}_{latest_date}.csv"))
 

@@ -1,12 +1,9 @@
 from typing import Tuple
-
 from log_setup import get_logger
 from configparser import ConfigParser
 from pandas import DataFrame
-import pandas as pd
-import sympy as sp
 import configuration
-from datetime import datetime, timedelta, date
+from datetime import date
 from stock_observer.database.database_communication import MySQL_Connection
 
 logger = get_logger(__name__)
