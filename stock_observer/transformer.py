@@ -23,9 +23,9 @@ class Transformer:
         self.bollinger_bands_period = int(self.config['Indicator']['bollinger bands period'])
 
     def transform(self, data: DataFrame = DataFrame()) -> DataFrame:
-        if data.empty:
-            logger.warning("Transformation received empty data frame")
-            return DataFrame()
+        # if data.empty:
+        #     logger.warning("Transformation received empty data frame")
+        #     return DataFrame()
 
         data_df = self.data_load(data, day_shift=30)
 
@@ -38,7 +38,7 @@ class Transformer:
         data_df = self.add_angle(data_df=data_df, feature='MA_20')
         data_df = self.add_angle(data_df=data_df, feature='ATR_20')
 
-        data_df = data_df[data_df['date'] >= min(data.date)] #TODO uncomment
+        # data_df = data_df[data_df['date'] >= min(data.date)] #TODO uncomment
         data_df = data_df.round(3)
         logger.info(f"Saving transformed data in csv file at {self.path}")
         save_csv(data_df, self.path)
@@ -47,12 +47,14 @@ class Transformer:
     def data_load(self, data: DataFrame, day_shift: int) -> DataFrame:
         logger.info("Data loading from staging database")
         if data.empty:
-            least_date = str_to_datetime('2000-01-01').date()
+            least_date = str_to_datetime('2018-10-01').date() #TODO
         else:
             least_date = min(data.date)
         starting_date = least_date - timedelta(days=(day_shift + 3))
         mysql = MySQL_Connection(config=self.config)
-        data_df = mysql.select(f"SELECT * FROM {self.stage_table_name} WHERE date > '{starting_date}';")
+        data_df = mysql.select(f"SELECT * FROM {self.stage_table_name} "
+                               f"WHERE date > '{starting_date}'"
+                               f"AND ticker = 'SPY';") #TODO
         return data_df
 
     @staticmethod
@@ -104,16 +106,16 @@ class Transformer:
 
     def add_atr(self, data_df: DataFrame, n_days: int) -> DataFrame:
         logger.info("Calculating ATR")
-        data_df['H-L'] = abs(data_df['high'] - data_df['low'])
-        data_df['H-P'] = abs(data_df['high'] - data_df['close'].shift(1))
-        data_df['L-P'] = abs(data_df['close'].shift(1) - data_df['low'])
+        data_df['H_L'] = abs(data_df['high'] - data_df['low'])
+        data_df['H_P'] = abs(data_df['high'] - data_df['close'].shift(1))
+        data_df['L_P'] = abs(data_df['close'].shift(1) - data_df['low'])
         max_list = []
         for index, row in data_df.iterrows():
-            max_list.append(max(row['H-L'], row['H-P'], row['L-P']))
+            max_list.append(max(row['H_L'], row['H_P'], row['L_P']))
         data_df['true_range'] = DataFrame(max_list, columns=['true_range'])
         data_df = self.add_rolling_ave(data_df=data_df, n_days=n_days, feature='true_range')
         data_df.rename(columns={f'{n_days}_days_rolling_result': f'ATR_{n_days}'}, inplace=True)
-        data_df.drop(columns=['H-L', 'H-P', 'L-P', 'true_range'], inplace=True)
+        data_df.drop(columns=['H_L', 'H_P', 'L_P', 'true_range'], inplace=True)
         return data_df
 
     @staticmethod
