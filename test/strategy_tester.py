@@ -37,7 +37,7 @@ class Strategy_Tester:
                 MA_result_df = analyzer.MA_cross_angle_diff(data_df=data_df_chunk)
                 ATR_slope_result_df = analyzer.ATR_slope_change(data_df=data_df_chunk)
                 ATR_range_result_df = analyzer.ATR_range(data_df=data_df_chunk)
-                CCI_result_df = analyzer.CCI_change(data_df=data_df_chunk)
+                CCI_result_df = analyzer.CCI_cha0nge(data_df=data_df_chunk)
                 analyzed_data = analyzer.result_integrator(BB=BB_result_df, MA=MA_result_df, ATR_S=ATR_slope_result_df,
                                                            ATR_R=ATR_range_result_df, CCI=CCI_result_df)
                 data = data.append(analyzed_data)

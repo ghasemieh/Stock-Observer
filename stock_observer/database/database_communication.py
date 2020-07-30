@@ -38,7 +38,8 @@ class MySQL_Connection:
                         high double, 
                         low double, 
                         close double, 
-                        volume bigint(20));"""
+                        volume bigint(20),
+                        CCI double);"""
         elif table_type == 'main':
             cols = " double, ".join([str(i) for i in derivative_features]) + " double"
             query = f"""CREATE TABLE {table_name} (

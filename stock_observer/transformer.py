@@ -31,14 +31,14 @@ class Transformer:
 
         data_df = self.add_moving_avg(data_df=data_df, n_days=self.moving_avg_period_1)
         data_df = self.add_moving_avg(data_df=data_df, n_days=self.moving_avg_period_2)
-        data_df = self.add_cci(data_df=data_df, n_days=self.cci_period)
+        # data_df = self.add_cci(data_df=data_df, n_days=self.cci_period)
         data_df = self.add_atr(data_df=data_df, n_days=self.atr_period)
         data_df = self.add_bollinger_bands(data_df=data_df, n_days=self.bollinger_bands_period)
         data_df = self.add_angle(data_df=data_df, feature='MA_5')
         data_df = self.add_angle(data_df=data_df, feature='MA_20')
         data_df = self.add_angle(data_df=data_df, feature='ATR_20')
 
-        # data_df = data_df[data_df['date'] >= min(data.date)] #TODO uncomment
+        # data_df = data_df[data_df['date'] >= min(data.date)]  # TODO uncomment
         data_df = data_df.round(3)
         logger.info(f"Saving transformed data in csv file at {self.path}")
         save_csv(data_df, self.path)
@@ -47,14 +47,13 @@ class Transformer:
     def data_load(self, data: DataFrame, day_shift: int) -> DataFrame:
         logger.info("Data loading from staging database")
         if data.empty:
-            least_date = str_to_datetime('2018-10-01').date() #TODO
+            least_date = str_to_datetime('2000-01-01').date()  # TODO
         else:
             least_date = min(data.date)
         starting_date = least_date - timedelta(days=(day_shift + 3))
         mysql = MySQL_Connection(config=self.config)
         data_df = mysql.select(f"SELECT * FROM {self.stage_table_name} "
-                               f"WHERE date > '{starting_date}'"
-                               f"AND ticker = 'SPY';") #TODO
+                               f"WHERE date > '{starting_date}';")  # TODO
         return data_df
 
     @staticmethod
@@ -63,7 +62,7 @@ class Transformer:
         data_df.index = data_df.date
         rolling_avg_df = data_df.groupby(by='ticker')[feature].rolling(window=n_days, min_periods=n_days) \
             .mean().reset_index(drop=False)
-        rolling_avg_df.rename(columns={feature: f'{n_days}_days_rolling_result'}, inplace=True)
+        rolling_avg_df.rename(columns={feature: f'rolling_result_{n_days}'}, inplace=True)
         data_df.reset_index(drop=True, inplace=True)
         data_df = data_df.merge(rolling_avg_df, on=['ticker', 'date'], how='inner')
         data_df.sort_values(by=['ticker', 'date'], inplace=True)
@@ -74,34 +73,47 @@ class Transformer:
         logger.info(f"Calculating Moving Average for {n_days} days")
         data_df['op'] = (data_df['open'] + data_df['close']) / 2
         data_df = self.add_rolling_ave(data_df=data_df, n_days=n_days, feature='op')
-        data_df.rename(columns={f'{n_days}_days_rolling_result': f'MA_{n_days}'}, inplace=True)
+        data_df.rename(columns={f'rolling_result_{n_days}': f'MA_{n_days}'}, inplace=True)
         data_df.drop(columns='op', inplace=True)
         return data_df
 
     def add_cci(self, data_df: DataFrame, n_days: int) -> DataFrame:
         logger.info("Calculating CCI")
-        # compute typical price: (H+L+C)/3
-        data_df['typical_price'] = (data_df['high'] + data_df['close'] + data_df['low']) / 3
+        # Find the lowest and highest price in the last x days
+        data_df.index = data_df.date
+        highest = data_df.groupby(by='ticker')['high'].rolling(window=n_days, min_periods=n_days).max().reset_index(drop=False)
+        lowest = data_df.groupby(by='ticker')['low'].rolling(window=n_days, min_periods=n_days).min().reset_index(drop=False)
+
+        highest.rename(columns={'high': f'highest_{n_days}'}, inplace=True)
+        lowest.rename(columns={'low': f'lowest_{n_days}'}, inplace=True)
+
+        data_df.reset_index(drop=True, inplace=True)
+        data_df = data_df.merge(highest, on=['ticker', 'date'], how='inner')
+        data_df = data_df.merge(lowest, on=['ticker', 'date'], how='inner')
+        data_df.sort_values(by=['ticker', 'date'], inplace=True)
+        data_df.reset_index(drop=True, inplace=True)
+
+        # compute typical price: (Hn+Ln+C)/3
+        data_df['typical_price'] = (data_df[f'highest_{n_days}'] + data_df['close'] + data_df[f'lowest_{n_days}']) / 3
 
         # compute moving average on typical price: sum(typical_price)/30
-        data_df = self.add_rolling_ave(data_df=data_df, n_days=n_days, feature='typical_price') # TODO shift 1 day back
-        data_df.rename(columns={f'{n_days}_days_rolling_result': f'{n_days}_days_moving_avg_of_typical_price'},
+        data_df = self.add_rolling_ave(data_df=data_df, n_days=n_days, feature='typical_price')  # TODO shift 1 day back
+        data_df.rename(columns={f'rolling_result_{n_days}': f'moving_avg_of_typical_price_{n_days}'},
                        inplace=True)
 
         # compute mean deviation: sum(|typical_price - moving average|)/30
-        data_df['tp-mv'] = abs(data_df['typical_price'] - data_df[f'{n_days}_days_moving_avg_of_typical_price'])
-        data_df = self.add_rolling_ave(data_df=data_df, n_days=n_days, feature='tp-mv')
-        data_df.rename(columns={f'{n_days}_days_rolling_result': f'{n_days}_days_mean_deviation'}, inplace=True)
+        data_df['tp_mv'] = abs(data_df['typical_price'] - data_df[f'moving_avg_of_typical_price_{n_days}'])
+        data_df = self.add_rolling_ave(data_df=data_df, n_days=n_days, feature='tp_mv')
+        data_df.rename(columns={f'rolling_result_{n_days}': f'mean_deviation_{n_days}'}, inplace=True)
 
         # compute Commodity Channel Index (CCI): (typical_price - moving_average)/(0.015 * mean_deviation)
-        data_df[f'{n_days}_days_mean_deviation'] = data_df[f'{n_days}_days_mean_deviation'] \
+        data_df[f'mean_deviation_{n_days}'] = data_df[f'mean_deviation_{n_days}'] \
             .map(lambda x: 0.00001 if x == 0 else x)
         data_df[f'CCI_{n_days}'] = (data_df['typical_price'] - data_df[
-            f'{n_days}_days_moving_avg_of_typical_price']) / (0.015 * data_df[f'{n_days}_days_mean_deviation'])
+            f'moving_avg_of_typical_price_{n_days}']) / (0.015 * data_df[f'mean_deviation_{n_days}'])
 
-        data_df.drop(columns=['typical_price', 'tp-mv',
-                              f'{n_days}_days_moving_avg_of_typical_price',
-                              f'{n_days}_days_mean_deviation'], inplace=True)
+        # data_df.drop(columns=['typical_price', 'tp_mv', f'moving_avg_of_typical_price_{n_days}',
+        #                       f'mean_deviation_{n_days}', f'lowest_{n_days}', f'highest_{n_days}'], inplace=True)
         return data_df
 
     def add_atr(self, data_df: DataFrame, n_days: int) -> DataFrame:
@@ -114,7 +126,7 @@ class Transformer:
             max_list.append(max(row['H_L'], row['H_P'], row['L_P']))
         data_df['true_range'] = DataFrame(max_list, columns=['true_range'])
         data_df = self.add_rolling_ave(data_df=data_df, n_days=n_days, feature='true_range')
-        data_df.rename(columns={f'{n_days}_days_rolling_result': f'ATR_{n_days}'}, inplace=True)
+        data_df.rename(columns={f'rolling_result_{n_days}': f'ATR_{n_days}'}, inplace=True)
         data_df.drop(columns=['H_L', 'H_P', 'L_P', 'true_range'], inplace=True)
         return data_df
 
@@ -126,15 +138,15 @@ class Transformer:
         data_df['op'] = (data_df['open'] + data_df['close']) / 2
         rolling_sd_df = data_df.groupby(by='ticker')['op'].rolling(window=n_days, min_periods=n_days) \
             .std().reset_index(drop=False)
-        rolling_sd_df.rename(columns={'op': f'{n_days}_standard_deviation_result'}, inplace=True)
+        rolling_sd_df.rename(columns={'op': f'standard_deviation_{n_days}'}, inplace=True)
         data_df.reset_index(drop=True, inplace=True)
         data_df = data_df.merge(rolling_sd_df, on=['ticker', 'date'], how='inner')
         data_df.sort_values(by=['ticker', 'date'], inplace=True)
         data_df.reset_index(drop=True, inplace=True)
 
-        data_df[f'BB_L_{n_days}'] = data_df['MA_20'] - 2 * data_df[f'{n_days}_standard_deviation_result']
-        data_df[f'BB_U_{n_days}'] = data_df['MA_20'] + 2 * data_df[f'{n_days}_standard_deviation_result']
-        data_df.drop(columns=['op', f'{n_days}_standard_deviation_result'], inplace=True)
+        data_df[f'BB_L_{n_days}'] = data_df['MA_20'] - 2 * data_df[f'standard_deviation_{n_days}']
+        data_df[f'BB_U_{n_days}'] = data_df['MA_20'] + 2 * data_df[f'standard_deviation_{n_days}']
+        data_df.drop(columns=['op', f'standard_deviation_{n_days}'], inplace=True)
         return data_df
 
     @staticmethod

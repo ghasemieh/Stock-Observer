@@ -229,11 +229,11 @@ class Analyzer:
             trigger = False
             status = 0
             signal: int = 0
-            temp_df = data_df[data_df.ticker == ticker][['id', 'ticker', 'date', 'CCI_30']].copy()
+            temp_df = data_df[data_df.ticker == ticker][['id', 'ticker', 'date', 'CCI']].copy()
             temp_df.sort_values(by=['date'], inplace=True)
             temp_df.reset_index(drop=True, inplace=True)
             for tup in temp_df.itertuples():
-                CCI = tup.CCI_30
+                CCI = tup.CCI
                 if CCI > 100:
                     trigger = True
                     status = 1
@@ -247,9 +247,9 @@ class Analyzer:
                     if CCI > 50 and status == 2:
                         signal = 1
                         logger.warning(f"{ticker} CCI raise from -50 to +100")
-                result.append((tup.id, ticker, tup.date, CCI, signal))
+                result.append((tup.id, ticker, tup.date, signal))
                 signal = 0
-        result_df = DataFrame(result, columns=['id', 'ticker', 'date', 'CCI', 'CCI_signal'])
+        result_df = DataFrame(result, columns=['id', 'ticker', 'date', 'CCI_signal'])
         result_df = result_df[result_df.date == latest_date]
         return result_df
 
