@@ -7,7 +7,6 @@ from stock_observer.database.database_communication import MySQL_Connection
 from stock_observer.analyzer import Analyzer
 from pathlib import Path
 from datetime import datetime
-
 from utils import save_csv
 
 logger = get_logger(__name__)
@@ -25,6 +24,7 @@ class Strategy_Tester:
         ticker_list = data_df.ticker.unique()
         data = DataFrame()
         for ticker in ticker_list:
+            logger.info(f"---------- Analyzing {ticker} -----------")
             temp_df = data_df[data_df.ticker == ticker].copy()
             temp_df.sort_values(by=['date'], inplace=True, ascending=True)
             temp_df.reset_index(drop=True, inplace=True)
@@ -38,8 +38,10 @@ class Strategy_Tester:
                 ATR_slope_result_df = analyzer.ATR_slope_change(data_df=data_df_chunk)
                 ATR_range_result_df = analyzer.ATR_range(data_df=data_df_chunk)
                 CCI_result_df = analyzer.CCI_change(data_df=data_df_chunk)
+                price_change_result_df = analyzer.price_change(data_df=data_df_chunk)
                 analyzed_data = analyzer.result_integrator(BB=BB_result_df, MA=MA_result_df, ATR_S=ATR_slope_result_df,
-                                                           ATR_R=ATR_range_result_df, CCI=CCI_result_df)
+                                                           ATR_R=ATR_range_result_df, CCI=CCI_result_df,
+                                                           PC=price_change_result_df)
                 data = data.append(analyzed_data)
         result = data_df.merge(data, on=['id', 'ticker', 'date'], how='outer')
         save_csv(result, Path(f"{self.strategy_test_result}_{datetime.now().date()}_"
