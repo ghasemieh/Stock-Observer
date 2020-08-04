@@ -31,7 +31,7 @@ class Strategy_Tester:
             temp_df.reset_index(drop=True, inplace=True)
             total_record = len(temp_df)
             num_of_record_in_each_chunk = 30
-            for i in range(0, total_record - 1):
+            for i in range(0, total_record - num_of_record_in_each_chunk + 1):
                 data_df_chunk = deepcopy(temp_df[i:(i + num_of_record_in_each_chunk)])
                 analyzer = Analyzer(self.config)
                 BB_result_df = analyzer.BB_check(data_df=data_df_chunk)
