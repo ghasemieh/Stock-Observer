@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 class Downloader:
     def __init__(self, config: ConfigParser):
         self.config = config
-        self.path = Path(config['Data_Sources']['equity price csv'])
+        self.downloaded_csv_path = Path(config['Data_Sources']['equity price csv'])
         self.stage_table_name = self.config['MySQL']['stage table name']
         self.alphavantage_api_key = self.config['API']['alphavantage API key']
         self.marketstack_api_key = self.config['API']['marketstack API key']
@@ -37,7 +37,8 @@ class Downloader:
                                          mode='buk')
         data_df = self.add_primary_key(data_df)
         logger.info(f"Data size is {data_df.shape}")
-        save_csv(data_df, self.path)
+        save_csv(data_df, Path(f"{self.downloaded_csv_path}_{datetime.now().date()}_"
+                               f"{datetime.now().hour}-{datetime.now().minute}.csv"))
         return data_df
 
     def updates_downloader(self, ticker_list):
@@ -46,8 +47,10 @@ class Downloader:
         if not data_df.empty:
             data_df = self.add_primary_key(data_df)
             logger.info(f"Data size is {data_df.shape}")
-            logger.info(f"Saving downloaded data in csv file at {self.path}")
-            save_csv(data_df, self.path)
+            logger.info(f"Saving downloaded data in csv file at {self.downloaded_csv_path}_{datetime.now().date()}_"
+                        f"{datetime.now().hour}-{datetime.now().minute}.csv")
+            save_csv(data_df, Path(f"{self.downloaded_csv_path}_{datetime.now().date()}_"
+                                   f"{datetime.now().hour}-{datetime.now().minute}.csv"))
             return data_df
         else:
             logger.warning("No new data received")
