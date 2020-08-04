@@ -3,7 +3,8 @@ from log_setup import get_logger
 from configparser import ConfigParser
 from pandas import DataFrame
 import configuration
-from datetime import date, timedelta
+from pathlib import Path
+from datetime import date, timedelta, datetime
 from stock_observer.database.database_communication import MySQL_Connection
 from utils import save_csv
 
@@ -26,18 +27,21 @@ class Decision_Maker:
         self.config = config
         self.analysis_table_name = self.config['MySQL']['analysis table name']
         self.decision_table_name = self.config['MySQL']['decision table name']
-        self.result_file_path = f"{self.config['Data_Sources']['analysis equity price csv']}_{date.today()}.csv"
+        self.path = config['Data_Sources']['decision equity price csv']
 
     def decide(self) -> Tuple[str, str]:
-        data_df = self.data_load(day_shift=10)
+        data_df = self.data_load(day_shift=20)
         BB_U_PD_result_df = self.BB_U_PD(data_df=data_df)
         BB_L_PD_result_df = self.BB_L_PD(data_df=data_df)
         ATR_candle_PD_result_df = self.ATR_candle_PD(data_df=data_df)
         MA_angle_diff_result_df = self.MA_angle_diff(data_df=data_df)
         ATR_angle_CCI_result_df = self.ATR_angle_CCI(data_df=data_df)
+        ATR_angle_MA_result_df = self.ATR_angle_MA(data_df=data_df)
+        CCI_MA_result_df = self.CCI_MA(data_df=data_df)
 
         result_df = self.result_integrator(BB_U_PD_result_df, BB_L_PD_result_df, ATR_candle_PD_result_df,
-                                           MA_angle_diff_result_df, ATR_angle_CCI_result_df)
+                                           MA_angle_diff_result_df, ATR_angle_CCI_result_df, ATR_angle_MA_result_df,
+                                           CCI_MA_result_df)
         self.result_logger(table_name=self.decision_table_name, table_type='analysis', data_df=result_df)
         alert_message = self.alert_message_generator(result_df=data_df)
         result_file_path = ""
@@ -47,7 +51,8 @@ class Decision_Maker:
         logger.info("Data loading from analysis database")
         mysql = MySQL_Connection(config=self.config)
         starting_date = date.today() - timedelta(days=(day_shift + 3))
-        data_df = mysql.select(f"SELECT * FROM {self.analysis_table_name} WHERE date > '{starting_date}';")
+        data_df = mysql.select(f"SELECT * FROM {self.analysis_table_name} "
+                               f"WHERE date > '{starting_date}';")  # TODO
         return data_df
 
     @staticmethod
@@ -102,7 +107,8 @@ class Decision_Maker:
         """
         logger.info("ATR candle size and price difference check")
         latest_date = max(data_df.date)
-        df = data_df[data_df.date == latest_date][['id', 'ticker', 'date', 'ATR_candle_size_signal', 'price_diff_signal']]
+        df = data_df[data_df.date == latest_date][
+            ['id', 'ticker', 'date', 'ATR_candle_size_signal', 'price_diff_signal']]
         df.reset_index(drop=True, inplace=True)
         result = []
         for tup in df.itertuples():
@@ -130,8 +136,7 @@ class Decision_Maker:
         :param data_df:
         :return:
         """
-        logger.info("ATR angle angle and CCI change check")
-        latest_date = max(data_df.date)
+        logger.info("ATR angle and CCI change check")
         data_df.reset_index(drop=True, inplace=True)
         ticker_list = data_df.ticker.unique()
         result = []
@@ -139,49 +144,122 @@ class Decision_Maker:
             signal: int = 0
             a: bool = False
             b: bool = False
-            c: bool = False
             ATR_signal_max = 0
-            temp_df = data_df[data_df.ticker == ticker][['id', 'ticker', 'date', 'ATR_slope_change_signal', 'CCI_signal']].copy()
-            temp_df.sort_values(by=['date'], inplace=True)
+            temp_df = data_df[data_df.ticker == ticker][
+                ['id', 'ticker', 'date', 'ATR_slope_change_signal', 'CCI_signal']].copy()
+            temp_df.sort_values(by=['date'], inplace=True, ascending=False)
+            temp_df = temp_df[:10]
+            temp_df.sort_values(by=['date'], inplace=True, ascending=True)
             temp_df.reset_index(drop=True, inplace=True)
             for tup in temp_df.itertuples():
                 CCI_signal = tup.CCI_signal
                 ATR_signal = tup.ATR_slope_change_signal
 
                 if CCI_signal == 1:
+                    CCI_max = CCI_signal
                     a = True
                 if CCI_signal == -1:
+                    CCI_min = CCI_signal
                     b = True
-                if ATR_signal > 0:
-                    c = True
-                    ATR_signal_max = max([ATR_signal_max, ATR_signal])
+                ATR_signal_max = max([ATR_signal_max, ATR_signal])
 
-                if a is True and c is True:
-                    signal = CCI_signal * ATR_signal_max
+                if a is True:
+                    signal = CCI_max * ATR_signal_max
                     a = False
-                if b is True and c is True:
-                    signal = CCI_signal * ATR_signal_max
+                if b is True:
+                    signal = CCI_min * ATR_signal_max
                     b = False
 
-                result.append((tup.id, ticker, tup.date, signal))
-                signal = 0
+            result.append((tup.id, ticker, tup.date, signal))
         result_df = DataFrame(result, columns=['id', 'ticker', 'date', 'ATR_angle_CCI_signal'])
-        result_df = result_df[result_df.date == latest_date]
         return result_df
 
-    def strategy_7(self, data_df: DataFrame):
-        None
+    @staticmethod
+    def ATR_angle_MA(data_df: DataFrame):
+        """
+        Within 10 days: [ATR_angle_dif > 30] & [MA_5=MA_20]
+        :param data_df:
+        :return:
+        """
+        logger.info("ATR angle and MA-5 and MA-20 cross check")
+        data_df.reset_index(drop=True, inplace=True)
+        ticker_list = data_df.ticker.unique()
+        result = []
+        for ticker in ticker_list:
+            signal: int = 0
+            ATR_signal_max = 0
+            MA_max = 0
+            temp_df = data_df[data_df.ticker == ticker][
+                ['id', 'ticker', 'date', 'ATR_slope_change_signal', 'MA_signal']].copy()
+            temp_df.sort_values(by=['date'], inplace=True, ascending=False)
+            temp_df = temp_df[:10]
+            temp_df.sort_values(by=['date'], inplace=True, ascending=True)
+            temp_df.reset_index(drop=True, inplace=True)
+            for tup in temp_df.itertuples():
+                MA_signal = tup.MA_signal
+                ATR_signal = tup.ATR_slope_change_signal
+                MA_max = max([MA_max, MA_signal])
+                ATR_signal_max = max([ATR_signal_max, ATR_signal])
+                signal = MA_max * ATR_signal_max
 
-    def strategy_8(self, data_df: DataFrame):
-        None
+            result.append((tup.id, ticker, tup.date, signal))
+        result_df = DataFrame(result, columns=['id', 'ticker', 'date', 'ATR_angle_MA_signal'])
+        return result_df
 
     @staticmethod
-    def result_integrator(s1: DataFrame, s2: DataFrame, s3: DataFrame, s4: DataFrame, s5: DataFrame) -> DataFrame:
+    def CCI_MA(data_df: DataFrame):
+        """
+        Within 10 days:  [CCI_signal] & [MA_5=MA_20]
+        :param data_df:
+        :return:
+        """
+        logger.info("CCI and MA-5 and MA-20 cross check")
+        data_df.reset_index(drop=True, inplace=True)
+        ticker_list = data_df.ticker.unique()
+        result = []
+        for ticker in ticker_list:
+            signal: int = 0
+            a: bool = False
+            b: bool = False
+            MA_signal_max = 0
+            temp_df = data_df[data_df.ticker == ticker][
+                ['id', 'ticker', 'date', 'MA_signal', 'CCI_signal']].copy()
+            temp_df.sort_values(by=['date'], inplace=True, ascending=False)
+            temp_df = temp_df[:10]
+            temp_df.sort_values(by=['date'], inplace=True, ascending=True)
+            temp_df.reset_index(drop=True, inplace=True)
+            for tup in temp_df.itertuples():
+                CCI_signal = tup.CCI_signal
+                MA_signal = tup.MA_signal
+
+                if CCI_signal == 1:
+                    CCI_max = CCI_signal
+                    a = True
+                if CCI_signal == -1:
+                    CCI_min = CCI_signal
+                    b = True
+                MA_signal_max = max([MA_signal_max, MA_signal])
+
+                if a is True:
+                    signal = CCI_max * MA_signal_max
+                    a = False
+                if b is True:
+                    signal = CCI_min * MA_signal_max
+                    b = False
+
+            result.append((tup.id, ticker, tup.date, signal))
+        result_df = DataFrame(result, columns=['id', 'ticker', 'date', 'CCI_MA_signal'])
+        return result_df
+
+    @staticmethod
+    def result_integrator(s1: DataFrame, s2: DataFrame, s3: DataFrame, s4: DataFrame, s5: DataFrame,
+                          s6: DataFrame, s7: DataFrame) -> DataFrame:
         data_df = s1.merge(s2, on=['id', 'ticker', 'date'], how='outer')
         data_df = data_df.merge(s3, on=['id', 'ticker', 'date'], how='outer')
         data_df = data_df.merge(s4, on=['id', 'ticker', 'date'], how='outer')
         data_df = data_df.merge(s5, on=['id', 'ticker', 'date'], how='outer')
-        # data_df = data_df.merge(s6, on=['id', 'ticker', 'date'], how='outer')
+        data_df = data_df.merge(s6, on=['id', 'ticker', 'date'], how='outer')
+        data_df = data_df.merge(s7, on=['id', 'ticker', 'date'], how='outer')
         data_df.sort_values(by=['id', 'ticker', 'date'], inplace=True)
         data_df.reset_index(drop=True, inplace=True)
         return data_df
@@ -189,10 +267,11 @@ class Decision_Maker:
     def result_logger(self, table_name: str, table_type: str, data_df: DataFrame) -> None:
         if not data_df.empty:
             latest_date = max(data_df.date)
-            logger.info(f"Saving analysis csv file in {self.path}_{latest_date}.csv")
-            save_csv(data_df, Path(f"{self.path}_{latest_date}.csv"))
+            logger.info(f"Saving trade signal csv file in {self.path}_{latest_date}.csv")
+            save_csv(data_df, Path(f"{self.path}_{datetime.now().date()}_"
+                                   f"{datetime.now().hour}-{datetime.now().minute}.csv"))
 
-            logger.info(f"Inserting analysis result in database {table_name} table")
+            logger.info(f"Inserting trade signal in database {table_name} table")
             mysql = MySQL_Connection(config=self.config)
             test = mysql.select(f"SELECT * FROM {table_name} LIMIT 3;")
             if test is None:
