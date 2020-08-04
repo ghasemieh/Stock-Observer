@@ -17,7 +17,8 @@ class Strategy_Tester:
         self.config = config
         self.main_table_name = self.config['MySQL']['main table name']
         self.ticker_list = Path(config['Data_Sources']['test tickers list csv'])
-        self.strategy_test_result = Path(config['Data_Sources']['strategy test result csv'])
+        self.strategy_csv_path = Path(config['Data_Sources']['strategy test result csv'])
+        self.strategy_table_name = self.config['MySQL']['strategy tester table name']
 
     def strategy_tester(self):
         data_df = self.data_load(start='2018-12-01')
@@ -44,8 +45,10 @@ class Strategy_Tester:
                                                            PC=price_change_result_df)
                 data = data.append(analyzed_data)
         result = data_df.merge(data, on=['id', 'ticker', 'date'], how='outer')
-        save_csv(result, Path(f"{self.strategy_test_result}_{datetime.now().date()}_"
+        result.drop_duplicates(subset='id', inplace=True)
+        save_csv(result, Path(f"{self.strategy_csv_path}_{datetime.now().date()}_"
                               f"{datetime.now().hour}-{datetime.now().minute}.csv"))
+        self.result_logger(data_df=result, table_name=self.strategy_table_name, table_type="analysis")
         return result
 
     def data_load(self, start: str) -> DataFrame:
@@ -60,6 +63,26 @@ class Strategy_Tester:
                                 f"and date >= '{start}';")
             data_df = data_df.append(data, ignore_index=True)
         return data_df
+
+    def result_logger(self, table_name: str, table_type: str, data_df: DataFrame) -> None:
+        if not data_df.empty:
+            latest_date = max(data_df.date)
+            logger.info(f"Saving analysis csv file in {self.strategy_csv_path}_{latest_date}.csv")
+            save_csv(data_df, Path(f"{self.strategy_csv_path}_{latest_date}.csv"))
+
+            logger.info(f"Inserting analysis result in database {table_name} table")
+            mysql = MySQL_Connection(config=self.config)
+            test = mysql.select(f"SELECT * FROM {table_name} LIMIT 3;")
+            if test is None:
+                derivative_features = list(data_df.columns)[3:]
+                mysql.create_table(table_name=table_name, table_type=table_type,
+                                   derivative_features=derivative_features)
+                mysql.insert_df(data_df=data_df, table_name=table_name, primary_key='id', if_exists='append')
+            else:
+                logger.info(f"Update {table_name} table in the database")
+                mysql.insert_df(data_df=data_df, table_name=table_name, primary_key='id', if_exists='append')
+        else:
+            logger.warning("Database insertion received empty data frame")
 
 
 if __name__ == '__main__':

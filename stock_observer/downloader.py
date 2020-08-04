@@ -79,6 +79,7 @@ class Downloader:
                             f"""select max(date) from {table_name} where ticker = '{ticker}';""")
                         if latest_date_df is not None:
                             latest_date_in_db = latest_date_df.iloc[0][0]
+                            logger.info(f"{ticker} latest update is {latest_date_in_db}")
                         else:
                             latest_date_in_db = datetime.strptime('2000-01-01', "%Y-%m-%d").date()
 

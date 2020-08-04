@@ -14,7 +14,7 @@ class Analyzer:
     def __init__(self, config: ConfigParser):
         self.config = config
         self.main_table_name = self.config['MySQL']['main table name']
-        self.result_table_name = self.config['MySQL']['result table name']
+        self.result_table_name = self.config['MySQL']['analysis table name']
         self.path = config['Data_Sources']['analysis equity price csv']
 
     def analysis(self) -> DataFrame:
@@ -177,36 +177,36 @@ class Analyzer:
                 open_t = temp_df.iloc[0]['open']
                 close_t = temp_df.iloc[0]['close']
                 ATR_y = temp_df.iloc[1]['ATR_20']
-                candal_size = abs(open_t - close_t)
-                if candal_size <= ATR_y:
+                candle_size = abs(open_t - close_t)
+                if candle_size <= ATR_y:
                     signal = 0
-                elif ATR_y < candal_size < 1.55 * ATR_y:
+                elif ATR_y < candle_size < 1.55 * ATR_y:
                     signal = 1
                     logger.warning(
-                        f"Signal {signal}: {ticker} Candal size is {round(candal_size / ATR_y, 2)} times of ATR")
-                elif 1.55 * ATR_y <= candal_size < 1.7 * ATR_y:
+                        f"Signal {signal}: {ticker} Candle size is {round(candle_size / ATR_y, 2)} times of ATR")
+                elif 1.55 * ATR_y <= candle_size < 1.7 * ATR_y:
                     signal = 2
                     logger.warning(
-                        f"Signal {signal}: {ticker} Candal size is {round(candal_size / ATR_y, 2)} times of ATR")
-                elif 1.7 * ATR_y <= candal_size < 1.85 * ATR_y:
+                        f"Signal {signal}: {ticker} Candle size is {round(candle_size / ATR_y, 2)} times of ATR")
+                elif 1.7 * ATR_y <= candle_size < 1.85 * ATR_y:
                     signal = 3
                     logger.warning(
-                        f"Signal {signal}: {ticker} Candal size is {round(candal_size / ATR_y, 2)} times of ATR")
-                elif 1.85 * ATR_y <= candal_size < 2 * ATR_y:
+                        f"Signal {signal}: {ticker} candle size is {round(candle_size / ATR_y, 2)} times of ATR")
+                elif 1.85 * ATR_y <= candle_size < 2 * ATR_y:
                     signal = 4
                     logger.warning(
-                        f"Signal {signal}: {ticker} Candal size is {round(candal_size / ATR_y, 2)} times of ATR")
-                elif candal_size >= 2 * ATR_y:
+                        f"Signal {signal}: {ticker} candle size is {round(candle_size / ATR_y, 2)} times of ATR")
+                elif candle_size >= 2 * ATR_y:
                     signal = 5
                     logger.warning(
-                        f"Signal {signal}: {ticker} Candal size is {round(candal_size / ATR_y, 2)} times of ATR")
+                        f"Signal {signal}: {ticker} candle size is {round(candle_size / ATR_y, 2)} times of ATR")
             else:
                 logger.warning(f"Ticker {ticker} does't have 2 days data in last 3 days")
                 signal = 0
 
             result.append(
-                    (temp_df.iloc[0]['id'], ticker, temp_df.iloc[0]['date'], round(candal_size / ATR_y, 2), signal))
-        result_df = DataFrame(result, columns=['id', 'ticker', 'date', 'candal_ATR_ratio', 'ATR_candal_size_signal'])
+                    (temp_df.iloc[0]['id'], ticker, temp_df.iloc[0]['date'], round(candle_size / ATR_y, 2), signal))
+        result_df = DataFrame(result, columns=['id', 'ticker', 'date', 'candle_ATR_ratio', 'ATR_candle_size_signal'])
         return result_df
 
     @staticmethod
