@@ -59,7 +59,7 @@ class Stock_Observer_Pipeline:
 
         try:
             if args.download:
-                logger.info("-------- Downloader started. --------")
+                logger.info("************------------( Downloader started )------------************")
                 pipeline_report_step = self.pipeline_report.create_step("Downloader")
                 try:
                     download = Downloader(self.config)
@@ -70,7 +70,7 @@ class Stock_Observer_Pipeline:
                     raise e
 
             if args.stage_db:
-                logger.info("-------- Database staging started. --------")
+                logger.info("************------------( Database staging started )------------************")
                 pipeline_report_step = self.pipeline_report.create_step("Database Stagger")
                 try:
                     stage_db = DB_Insertion(self.config)
@@ -80,7 +80,7 @@ class Stock_Observer_Pipeline:
                     raise e
 
             if args.transform:
-                logger.info("-------- Transformation started. --------")
+                logger.info("************------------( Transformation started )------------************")
                 pipeline_report_step = self.pipeline_report.create_step("Transformation")
                 try:
                     transformation = Transformer(self.config)
@@ -90,7 +90,7 @@ class Stock_Observer_Pipeline:
                     raise e
 
             if args.main_db:
-                logger.info("-------- Main database insertion started. -------- ")
+                logger.info("************------------( Main database insertion started )------------************")
                 pipeline_report_step = self.pipeline_report.create_step("Main DB Insertion")
                 try:
                     derivative_features = list(processed_data_df.columns)[8:]
@@ -102,7 +102,7 @@ class Stock_Observer_Pipeline:
                     raise e
 
             if args.analyzer:
-                logger.info("-------- Analyzer started. --------")
+                logger.info("************------------( Analyzer started )------------************")
                 pipeline_report_step = self.pipeline_report.create_step("Analyzer")
                 try:
                     analyzer = Analyzer(self.config)
@@ -112,7 +112,7 @@ class Stock_Observer_Pipeline:
                     raise e
 
             if args.decision_maker:
-                logger.info("-------- Decision maker started. --------")
+                logger.info("************------------( Decision maker started )------------************")
                 pipeline_report_step = self.pipeline_report.create_step("Decision Maker")
                 try:
                     decision_maker = Decision_Maker(self.config)
@@ -122,7 +122,7 @@ class Stock_Observer_Pipeline:
                     raise e
 
             if args.notify:
-                logger.info("-------- Notifier started. -------- ")
+                logger.info("************------------( Notifier started )------------************")
                 pipeline_report_step = self.pipeline_report.create_step("Notifier")
                 try:
                     notifier = Notifier(self.config)

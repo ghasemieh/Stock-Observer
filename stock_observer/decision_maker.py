@@ -45,7 +45,7 @@ class Decision_Maker:
         self.result_logger(table_name=self.decision_table_name, table_type='analysis', data_df=result_df)
         alert_message = self.alert_message_generator(result_df=data_df)
         result_file_path = ""
-        return alert_message, self.result_file_path
+        return alert_message
 
     def data_load(self, day_shift=10) -> DataFrame:
         logger.info("Data loading from analysis database")
