@@ -50,8 +50,9 @@ class Downloader:
         if not data_df.empty:
             data_df = self.add_primary_key(data_df)
             logger.info(f"Data size is {data_df.shape}")
-            logger.info(f"Saving downloaded data in csv file at {self.stock_price_downloaded_csv_path}_{datetime.now().date()}_"
-                        f"{datetime.now().hour}-{datetime.now().minute}.csv")
+            logger.info(
+                f"Saving downloaded data in csv file at {self.stock_price_downloaded_csv_path}_{datetime.now().date()}_"
+                f"{datetime.now().hour}-{datetime.now().minute}.csv")
             save_csv(data_df, Path(f"{self.stock_price_downloaded_csv_path}_{datetime.now().date()}_"
                                    f"{datetime.now().hour}-{datetime.now().minute}.csv"))
             return data_df
@@ -198,26 +199,18 @@ class Downloader:
         return data_df
 
     # functions to get and parse data from FinViz
-
     def fundamentals_download(self, ticker_list: DataFrame) -> DataFrame:
-        metric = ['Index', 'Market Cap', 'Income', 'Sales', 'Book/sh', 'Cash/sh', 'Dividend', 'Dividend %', 'Employees',
-                  'Optionable', 'Shortable', 'Recom', 'P/E', 'Forward P/E', 'PEG', 'P/S', 'P/B', 'P/C', 'P/FCF',
-                  'Quick Ratio', 'Current Ratio', 'Debt/Eq', 'LT Debt/Eq', 'SMA20', 'EPS (ttm)', 'EPS next Y',
-                  'EPS next Q', 'EPS this Y', 'EPS next 5Y', 'EPS past 5Y', 'Sales past 5Y',
-                  'Sales Q/Q', 'EPS Q/Q', 'Earnings', 'SMA50', 'Insider Own', 'Insider Trans', 'Inst Own',
-                  'Inst Trans', 'ROA', 'ROE', 'ROI', 'Gross Margin', 'Oper. Margin', 'Profit Margin',
-                  'Payout', 'SMA200', 'Shs Outstand', 'Shs Float', 'Short Float', 'Short Ratio',
-                  'Target Price', '52W Range', '52W High', '52W Low', 'RSI (14)', 'Rel Volume',
-                  'Avg Volume', 'Volume', 'Perf Week', 'Perf Month', 'Perf Quarter', 'Perf Half Y',
-                  'Perf Year', 'Perf YTD', 'Beta', 'ATR', 'Volatility', 'Prev Close', 'Price',
-                  'Change']
-        data_df = pd.DataFrame(index=ticker_list, columns=metric)
-        data_df = self.get_fundamental_data(data_df)
-        data_df['ticker'] = data_df.index
-        cols = list(data_df.columns)
-        cols = [cols[-1]] + cols[:-1]
-        data_df = data_df[cols]
-        data_df.reset_index(drop=True, inplace=True)
+        metric = ['Index', 'Market Cap', 'Income', 'Sales', 'Book/sh', 'Cash/sh', 'Dividend', 'Dividend %',
+                  'Employees', 'Optionable', 'Shortable', 'Recom', 'P/E', 'Forward P/E', 'PEG', 'P/S', 'P/B', 'P/C',
+                  'P/FCF', 'Quick Ratio', 'Current Ratio', 'Debt/Eq', 'LT Debt/Eq', 'SMA20', 'EPS (ttm)', 'EPS next Y',
+                  'EPS next Q', 'EPS this Y', 'EPS next 5Y', 'EPS past 5Y', 'Sales past 5Y', 'Sales Q/Q', 'EPS Q/Q',
+                  'Earnings', 'SMA50', 'Insider Own', 'Insider Trans', 'Inst Own', 'Inst Trans', 'ROA', 'ROE', 'ROI',
+                  'Gross Margin', 'Oper. Margin', 'Profit Margin', 'Payout', 'SMA200', 'Shs Outstand', 'Shs Float',
+                  'Short Float', 'Short Ratio', 'Target Price', '52W Range', '52W High', '52W Low', 'RSI (14)',
+                  'Rel Volume', 'Avg Volume', 'Volume', 'Perf Week', 'Perf Month', 'Perf Quarter', 'Perf Half Y',
+                  'Perf Year', 'Perf YTD', 'Beta', 'ATR', 'Volatility', 'Prev Close', 'Price', 'Change']
+        data_df = pd.DataFrame(columns=metric)
+        data_df = self.get_fundamental_data(data_df, ticker_list)
         save_csv(data_df, Path(f"{self.fundamentals_downloaded_csv_path}_{datetime.now().date()}_"
                                f"{datetime.now().hour}-{datetime.now().minute}.csv"))
         return data_df
@@ -226,16 +219,56 @@ class Downloader:
     def fundamental_metric(soup, metric):
         return soup.find(text=metric).find_next(class_='snapshot-td2').text
 
-    def get_fundamental_data(self, df):
-        for symbol in df.index:
+    def get_fundamental_data(self, data_df, ticker_list):
+        for index, item in ticker_list.iterrows():
+            symbol = item['ticker']
+            logger.info(f"Downloading {symbol} information.")
             try:
-                url = "http://finviz.com/quote.ashx?t=" + symbol[0].lower()
-                logger.info(url)
+                url = "http://finviz.com/quote.ashx?t=" + symbol.lower()
                 headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0'}
                 soup = bs(requests.get(url, headers=headers).content, "lxml")
-                for m in df.columns:
-                    df.loc[symbol, m] = self.fundamental_metric(soup, m)
+                for m in data_df.columns:
+                    data_df.loc[symbol, m] = self.fundamental_metric(soup, m)
             except Exception as e:
-                print(symbol, 'not found')
+                logger.warning(symbol, 'not found')
+                logger.warning(e)
             sleep(10)
-        return df
+
+        for index, item in ticker_list.iterrows():
+            symbol = item['ticker']
+            data_df.loc[symbol, 'date'] = datetime.now().date()
+        cols = list(data_df.columns)
+        cols = [cols[-1]] + cols[:-1]
+        data_df = data_df[cols]
+
+        data_df['ticker'] = data_df.index
+        cols = list(data_df.columns)
+        cols = [cols[-1]] + cols[:-1]
+        data_df = data_df[cols]
+        data_df.reset_index(drop=True, inplace=True)
+        data_df = self.fundamental_rename(data_df)
+        return data_df
+
+    @staticmethod
+    def fundamental_rename(data_df: DataFrame) -> DataFrame:
+        data_df = data_df.rename(columns=
+                                 {'Index': 'Market_Index', 'Market Cap': 'Market_Cap', 'Book/sh': 'Book_on_sh',
+                                  'Cash/sh': 'Cash_on_sh', 'Dividend %': 'Dividend_p', 'P/E': 'P_on_E',
+                                  'Forward P/E': 'Forward_P_on_E', 'P/S': 'P_on_S', 'P/B': 'P_on_B', 'P/C': 'P_on_C',
+                                  'P/FCF': 'P_on_FCF', 'Quick Ratio': 'Quick_Ratio', 'Current Ratio': 'Current_Ratio',
+                                  'Debt/Eq': 'Debt_on_Eq', 'LT Debt/Eq': 'LT_Debt_on_Eq', 'EPS (ttm)': 'EPS_ttm',
+                                  'EPS next Y': 'EPS_next_Y', 'EPS next Q': 'EPS_next_Q', 'EPS this Y': 'EPS_this_Y',
+                                  'EPS next 5Y': 'EPS_next_5Y', 'EPS past 5Y': 'EPS_past_5Y',
+                                  'Sales past 5Y': 'Sales_past_5Y', 'Sales Q/Q': 'Sales_Q_Q', 'EPS Q/Q': 'EPS_Q_Q',
+                                  'Insider Own': 'Insider_Own', 'Insider Trans': 'Insider_Trans',
+                                  'Inst Own': 'Inst_Own', 'Inst Trans': 'Inst_Trans', 'Gross Margin': 'Gross_Margin',
+                                  'Oper. Margin': 'Oper_Margin', 'Profit Margin': 'Profit_Margin',
+                                  'Shs Outstand': 'Shs_Outstand', 'Shs Float': 'Shs_Float',
+                                  'Short Float': 'Short_Float', 'Short Ratio': 'Short_Ratio',
+                                  'Target Price': 'Target_Price', '52W Range': '_52W_Range', '52W High': '_52W_High',
+                                  '52W Low': '_52W_Low', 'RSI (14)': 'RSI_14', 'Rel Volume': 'Rel_Volume',
+                                  'Avg Volume': 'Avg_Volume', 'Perf Week': 'Perf_Week', 'Perf Month': 'Perf_Month',
+                                  'Perf Quarter': 'Perf_Quarter', 'Perf Half Y': 'Perf_Half_Y',
+                                  'Perf Year': 'Perf_Year', 'Perf YTD': 'Perf_YTD', 'Prev Close': 'Prev_Close',
+                                  'Change': 'Change_Price'})
+        return data_df

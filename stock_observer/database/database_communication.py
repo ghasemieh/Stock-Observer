@@ -61,14 +61,16 @@ class MySQL_Connection:
                         {cols});"""
         elif table_type == 'fundamentals':
             query = f"""CREATE TABLE {table_name} (
-                        Index VARCHAR(20) NULL, 
+                        ticker VARCHAR(20) NOT NULL,
+                        date DATE NOT NULL,
+                        Market_Index VARCHAR(20) NULL,
                         Market_Cap VARCHAR(20) NULL, 
                         Income VARCHAR(20) NULL, 
                         Sales VARCHAR(20) NULL, 
                         Book_on_sh FLOAT NULL, 
                         Cash_on_sh FLOAT NULL, 
                         Dividend FLOAT NULL, 
-                        Dividend_p FLOAT NULL, 
+                        Dividend_p VARCHAR(20) NULL, 
                         Employees BIGINT NULL,
                         Optionable VARCHAR(20) NULL, 
                         Shortable VARCHAR(20) NULL, 
@@ -94,7 +96,7 @@ class MySQL_Connection:
                         Sales_past_5Y FLOAT NULL,
                         Sales_Q_Q FLOAT NULL, 
                         EPS_Q_Q FLOAT NULL, 
-                        Earning VARCHAR(20) NULL, 
+                        Earnings VARCHAR(20) NULL, 
                         SMA50 FLOAT NULL, 
                         Insider_Own FLOAT NULL, 
                         Insider_Trans FLOAT NULL, 
@@ -113,9 +115,9 @@ class MySQL_Connection:
                         Short_Float FLOAT NULL, 
                         Short_Ratio FLOAT NULL,
                         Target_Price FLOAT NULL, 
-                        52W_Range VARCHAR(20) NULL, 
-                        52W_High FLOAT NULL, 
-                        52W_Low FLOAT NULL, 
+                        _52W_Range VARCHAR(20) NULL, 
+                        _52W_High FLOAT NULL, 
+                        _52W_Low FLOAT NULL, 
                         RSI_14 FLOAT NULL, 
                         Rel_Volume FLOAT NULL,
                         Avg_Volume VARCHAR(20) NULL, 
@@ -131,7 +133,7 @@ class MySQL_Connection:
                         Volatility VARCHAR(20) NULL, 
                         Prev_Close FLOAT NULL, 
                         Price FLOAT NULL,
-                        Change FLOAT NULL);"""
+                        Change_Price FLOAT NULL);"""
         self.cursor.execute(query)
 
     def insert(self, table_name, data_df: DataFrame) -> None:
