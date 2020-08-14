@@ -25,6 +25,7 @@ class Stock_Observer_Pipeline:
         self.config = config
         self.ticker_list_path = Path(config['Data_Sources']['tickers list csv'])
         self.stage_table_name = self.config['MySQL']['stage table name']
+        self.fundamentals_table_name = self.config['MySQL']['fundamentals table name']
         self.main_table_name = self.config['MySQL']['main table name']
         self.data_folder_path = Path(config['General']['data directory'])
         self.data_download_folder_path = Path(config['General']['data download directory'])
@@ -64,7 +65,8 @@ class Stock_Observer_Pipeline:
                 try:
                     download = Downloader(self.config)
                     ticker_list = read_csv(self.ticker_list_path)
-                    data_df = download.download(ticker_list=ticker_list)
+                    # stock_price_data_df = download.stock_price_download(ticker_list=ticker_list)
+                    fundamentals_data_df = download.fundamentals_download(ticker_list=ticker_list)
                 except BaseException as e:
                     pipeline_report_step.mark_failure(str(e))
                     raise e
@@ -74,7 +76,10 @@ class Stock_Observer_Pipeline:
                 pipeline_report_step = self.pipeline_report.create_step("Database Stagger")
                 try:
                     stage_db = DB_Insertion(self.config)
-                    stage_db.insertion(data_df=data_df, table_name=self.stage_table_name, table_type='stage')
+                    # stage_db.insertion(data_df=stock_price_data_df, table_name=self.stage_table_name,
+                    #                    table_type='stage')
+                    stage_db.insertion(data_df=fundamentals_data_df, table_name=self.fundamentals_table_name,
+                                       table_type='fundamentals')
                 except BaseException as e:
                     pipeline_report_step.mark_failure(str(e))
                     raise e

@@ -1,7 +1,8 @@
+from copy import deepcopy
 from typing import Tuple
 from log_setup import get_logger
 from configparser import ConfigParser
-from pandas import DataFrame
+from pandas import DataFrame, read_csv
 import configuration
 from pathlib import Path
 from datetime import date, timedelta, datetime
@@ -25,34 +26,65 @@ logger = get_logger(__name__)
 class Decision_Maker:
     def __init__(self, config: ConfigParser):
         self.config = config
+        self.ticker_list_path = Path(config['Data_Sources']['test tickers list csv']) # TODO
         self.analysis_table_name = self.config['MySQL']['analysis table name']
         self.decision_table_name = self.config['MySQL']['decision table name']
         self.path = config['Data_Sources']['decision equity price csv']
 
     def decide(self) -> Tuple[str, str]:
         data_df = self.data_load(day_shift=20)
-        BB_U_PD_result_df = self.BB_U_PD(data_df=data_df)
-        BB_L_PD_result_df = self.BB_L_PD(data_df=data_df)
-        ATR_candle_PD_result_df = self.ATR_candle_PD(data_df=data_df)
-        MA_angle_diff_result_df = self.MA_angle_diff(data_df=data_df)
-        ATR_angle_CCI_result_df = self.ATR_angle_CCI(data_df=data_df)
-        ATR_angle_MA_result_df = self.ATR_angle_MA(data_df=data_df)
-        CCI_MA_result_df = self.CCI_MA(data_df=data_df)
+        ticker_list = data_df.ticker.unique()
+        data = DataFrame()
+        for ticker in ticker_list:
+            logger.info(f"---------- Analyzing {ticker} -----------")
+            temp_df = data_df[data_df.ticker == ticker].copy()
+            temp_df.sort_values(by=['date'], inplace=True, ascending=True)
+            temp_df.reset_index(drop=True, inplace=True)
+            total_record = len(temp_df)
+            num_of_record_in_each_chunk = 30
+            for i in range(0, total_record - num_of_record_in_each_chunk + 1):
+                data_df_chunk = deepcopy(temp_df[i:(i + num_of_record_in_each_chunk)])
+                BB_U_PD_result_df = self.BB_U_PD(data_df=data_df_chunk)
+                BB_L_PD_result_df = self.BB_L_PD(data_df=data_df_chunk)
+                ATR_candle_PD_result_df = self.ATR_candle_PD(data_df=data_df_chunk)
+                MA_angle_diff_result_df = self.MA_angle_diff(data_df=data_df_chunk)
+                ATR_angle_CCI_result_df = self.ATR_angle_CCI(data_df=data_df_chunk)
+                ATR_angle_MA_result_df = self.ATR_angle_MA(data_df=data_df_chunk)
+                CCI_MA_result_df = self.CCI_MA(data_df=data_df_chunk)
 
-        result_df = self.result_integrator(BB_U_PD_result_df, BB_L_PD_result_df, ATR_candle_PD_result_df,
-                                           MA_angle_diff_result_df, ATR_angle_CCI_result_df, ATR_angle_MA_result_df,
-                                           CCI_MA_result_df)
-        self.result_logger(table_name=self.decision_table_name, table_type='analysis', data_df=result_df)
+                result_df = self.result_integrator(BB_U_PD_result_df, BB_L_PD_result_df, ATR_candle_PD_result_df,
+                                                   MA_angle_diff_result_df, ATR_angle_CCI_result_df, ATR_angle_MA_result_df,
+                                                   CCI_MA_result_df)
+                data = data.append(result_df)
+        result = data_df.merge(data, on=['id', 'ticker', 'date'], how='outer')
+        result.drop_duplicates(subset='id', inplace=True)
+        result.dropna(inplace=True)
+        result.reset_index(drop=True, inplace=True)
+        self.result_logger(table_name=self.decision_table_name, table_type='analysis', data_df=result)
         alert_message = self.alert_message_generator(result_df=data_df)
         result_file_path = ""
         return alert_message
 
     def data_load(self, day_shift=10) -> DataFrame:
         logger.info("Data loading from analysis database")
-        mysql = MySQL_Connection(config=self.config)
-        starting_date = date.today() - timedelta(days=(day_shift + 3))
-        data_df = mysql.select(f"SELECT * FROM {self.analysis_table_name} "
-                               f"WHERE date > '{starting_date}';")  # TODO
+        ticker_list = read_csv(self.ticker_list_path)
+        data_df = DataFrame()
+        for row in ticker_list.iterrows():
+            ticker = row[1]['ticker']
+            mysql = MySQL_Connection(config=self.config)
+            latest_date_df = mysql.select(
+                f"SELECT max(date) FROM {self.decision_table_name} WHERE ticker = '{ticker}';")
+
+            if latest_date_df is not None:
+                latest_date_in_db = latest_date_df.iloc[0][0]
+                logger.info(f"{ticker} latest update is {latest_date_in_db}")
+            else:
+                latest_date_in_db = datetime.strptime('2018-12-01', "%Y-%m-%d").date()
+
+            starting_date = str(latest_date_in_db - timedelta(days=(day_shift + 3)))
+            data = mysql.select(f"SELECT * FROM {self.analysis_table_name} "
+                                f"WHERE ticker = '{ticker}' AND date > '{starting_date}';")
+            data_df = data_df.append(data, ignore_index=True)
         return data_df
 
     @staticmethod

@@ -5,10 +5,12 @@ from datetime import datetime, timedelta
 from log_setup import get_logger
 from configparser import ConfigParser
 from pandas import DataFrame, to_datetime
-import requests
 import time
+import pandas as pd
+from bs4 import BeautifulSoup as bs
+import requests
+from time import sleep
 from stock_observer.database.database_communication import MySQL_Connection
-from utils import str_to_datetime
 
 logger = get_logger(__name__)
 
@@ -16,12 +18,13 @@ logger = get_logger(__name__)
 class Downloader:
     def __init__(self, config: ConfigParser):
         self.config = config
-        self.downloaded_csv_path = Path(config['Data_Sources']['equity price csv'])
+        self.stock_price_downloaded_csv_path = Path(config['Data_Sources']['equity price csv'])
+        self.fundamentals_downloaded_csv_path = Path(config['Data_Sources']['fundamentals csv'])
         self.stage_table_name = self.config['MySQL']['stage table name']
         self.alphavantage_api_key = self.config['API']['alphavantage API key']
         self.marketstack_api_key = self.config['API']['marketstack API key']
 
-    def download(self, ticker_list: DataFrame) -> DataFrame:
+    def stock_price_download(self, ticker_list: DataFrame) -> DataFrame:
         mysql = MySQL_Connection(config=self.config)
         test = mysql.select(f"SELECT * FROM {self.stage_table_name} LIMIT 3;")
         if test is None:
@@ -37,7 +40,7 @@ class Downloader:
                                          mode='buk')
         data_df = self.add_primary_key(data_df)
         logger.info(f"Data size is {data_df.shape}")
-        save_csv(data_df, Path(f"{self.downloaded_csv_path}_{datetime.now().date()}_"
+        save_csv(data_df, Path(f"{self.stock_price_downloaded_csv_path}_{datetime.now().date()}_"
                                f"{datetime.now().hour}-{datetime.now().minute}.csv"))
         return data_df
 
@@ -47,9 +50,9 @@ class Downloader:
         if not data_df.empty:
             data_df = self.add_primary_key(data_df)
             logger.info(f"Data size is {data_df.shape}")
-            logger.info(f"Saving downloaded data in csv file at {self.downloaded_csv_path}_{datetime.now().date()}_"
+            logger.info(f"Saving downloaded data in csv file at {self.stock_price_downloaded_csv_path}_{datetime.now().date()}_"
                         f"{datetime.now().hour}-{datetime.now().minute}.csv")
-            save_csv(data_df, Path(f"{self.downloaded_csv_path}_{datetime.now().date()}_"
+            save_csv(data_df, Path(f"{self.stock_price_downloaded_csv_path}_{datetime.now().date()}_"
                                    f"{datetime.now().hour}-{datetime.now().minute}.csv"))
             return data_df
         else:
@@ -193,3 +196,46 @@ class Downloader:
         data_df = data_df[cols]
         data_df.drop(columns='date_str', inplace=True)
         return data_df
+
+    # functions to get and parse data from FinViz
+
+    def fundamentals_download(self, ticker_list: DataFrame) -> DataFrame:
+        metric = ['Index', 'Market Cap', 'Income', 'Sales', 'Book/sh', 'Cash/sh', 'Dividend', 'Dividend %', 'Employees',
+                  'Optionable', 'Shortable', 'Recom', 'P/E', 'Forward P/E', 'PEG', 'P/S', 'P/B', 'P/C', 'P/FCF',
+                  'Quick Ratio', 'Current Ratio', 'Debt/Eq', 'LT Debt/Eq', 'SMA20', 'EPS (ttm)', 'EPS next Y',
+                  'EPS next Q', 'EPS this Y', 'EPS next 5Y', 'EPS past 5Y', 'Sales past 5Y',
+                  'Sales Q/Q', 'EPS Q/Q', 'Earnings', 'SMA50', 'Insider Own', 'Insider Trans', 'Inst Own',
+                  'Inst Trans', 'ROA', 'ROE', 'ROI', 'Gross Margin', 'Oper. Margin', 'Profit Margin',
+                  'Payout', 'SMA200', 'Shs Outstand', 'Shs Float', 'Short Float', 'Short Ratio',
+                  'Target Price', '52W Range', '52W High', '52W Low', 'RSI (14)', 'Rel Volume',
+                  'Avg Volume', 'Volume', 'Perf Week', 'Perf Month', 'Perf Quarter', 'Perf Half Y',
+                  'Perf Year', 'Perf YTD', 'Beta', 'ATR', 'Volatility', 'Prev Close', 'Price',
+                  'Change']
+        data_df = pd.DataFrame(index=ticker_list, columns=metric)
+        data_df = self.get_fundamental_data(data_df)
+        data_df['ticker'] = data_df.index
+        cols = list(data_df.columns)
+        cols = [cols[-1]] + cols[:-1]
+        data_df = data_df[cols]
+        data_df.reset_index(drop=True, inplace=True)
+        save_csv(data_df, Path(f"{self.fundamentals_downloaded_csv_path}_{datetime.now().date()}_"
+                               f"{datetime.now().hour}-{datetime.now().minute}.csv"))
+        return data_df
+
+    @staticmethod
+    def fundamental_metric(soup, metric):
+        return soup.find(text=metric).find_next(class_='snapshot-td2').text
+
+    def get_fundamental_data(self, df):
+        for symbol in df.index:
+            try:
+                url = "http://finviz.com/quote.ashx?t=" + symbol[0].lower()
+                logger.info(url)
+                headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0'}
+                soup = bs(requests.get(url, headers=headers).content, "lxml")
+                for m in df.columns:
+                    df.loc[symbol, m] = self.fundamental_metric(soup, m)
+            except Exception as e:
+                print(symbol, 'not found')
+            sleep(10)
+        return df
